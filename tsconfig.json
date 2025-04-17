@@ -1,0 +1,19 @@
+{
+  "compilerOptions": {
+    "target": "ES2016",                                  /* Set the JavaScript language version for emitted JavaScript and include compatible library declarations. */
+    "module": "CommonJS",                                /* Specify what module code is generated. */
+    "jsx": "react-jsx",                                    /* Specify JSX code generation strategy: 'preserve', 'react-native', or 'react'. */
+    "esModuleInterop": true,                             /* Emit additional JavaScript to ease support for importing CommonJS modules. This enables 'allowSyntheticDefaultImports' for type compatibility. */
+    "forceConsistentCasingInFileNames": true,            /* Ensure that casing is correct in imports. */
+    "strict": true,                                      /* Enable all strict type-checking options. */
+    "skipLibCheck": true,                                /* Skip type checking all .d.ts files. */
+    "outDir": "./dist",                                   /* Specify an output folder for all emitted files. */
+    "rootDir": "./src",                                  /* Specify the root folder within your source files. */
+    "resolveJsonModule": true,                           /* Enable importing .json files */
+    "allowSyntheticDefaultImports": true,                /* Allow 'import x from y' when a module doesn't have a default export. */
+    "noEmit": true,                                      /* Disable emitting files from a compilation. Used when type checking is handled by another tool like Babel or Vite */
+    "isolatedModules": true                              /* Ensure that each file can be safely transpiled without relying on other imports. */
+  },
+  "include": ["src"],
+  "exclude": ["node_modules", "dist"]
+} 

@@ -3,193 +3,236 @@
 // This enables autocomplete, go to definition, etc.
 
 // Setup type definitions for built-in Supabase Runtime APIs
+// @ts-ignore - May show errors in some editors if Deno LSP isn't configured
 import "jsr:@supabase/functions-js/edge-runtime.d.ts"
 
-import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
+// @ts-ignore
+import { serve } from 'std/http/server.ts'
+// @ts-ignore
 import { createClient, SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2'
+// @ts-ignore
+import * as pdfjsLib from 'https://esm.sh/pdfjs-dist@3.4.120/build/pdf.mjs';
+// @ts-ignore
 import OpenAI from 'https://deno.land/x/openai@v4.52.7/mod.ts';
 
-console.log("Hello from Functions!")
+// IMPORTANT: Set these environment variables in your Supabase project's function settings
+const supabaseUrl = Deno.env.get("SUPABASE_URL");
+const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY");
+const openaiApiKey = Deno.env.get("OPENAI_API_KEY");
 
-// Utility function for splitting text (simple example)
-function splitTextIntoChunks(text: string, chunkSize = 1000, chunkOverlap = 100): string[] {
-  const chunks: string[] = [];
-  let i = 0;
-  while (i < text.length) {
-    const end = Math.min(i + chunkSize, text.length);
-    chunks.push(text.slice(i, end));
-    i += chunkSize - chunkOverlap; // Move index forward with overlap
-    if (i >= text.length) break; // Avoid infinite loop on short texts
-     // Ensure next chunk starts correctly after overlap, prevent going past end
-    if (i + chunkSize > text.length && i < text.length) {
-        i = Math.max(0, text.length - chunkSize); // Adjust start for the last chunk if overlap causes issues
-    }
-
-  }
-   // Handle edge case where the loop might exit slightly before the very end with overlap logic
-   if (chunks.length > 0 && text.length > (i - (chunkSize - chunkOverlap))) {
-     const lastChunkStartIndex = Math.max(0, text.length - chunkSize);
-     if (text.slice(lastChunkStartIndex) !== chunks[chunks.length -1]) { // Avoid duplicate last chunk
-        chunks.push(text.slice(lastChunkStartIndex));
-     }
-   }
-  return chunks.filter(chunk => chunk.trim() !== ''); // Remove empty chunks
+// Check if necessary environment variables are set
+if (!supabaseUrl || !supabaseAnonKey || !openaiApiKey) {
+  console.error(
+    "Missing environment variables: SUPABASE_URL, SUPABASE_ANON_KEY, or OPENAI_API_KEY"
+  );
+  // Optionally, throw an error or return a specific response during deployment/startup
 }
 
-// Initialize OpenAI client
-const openai = new OpenAI({
-  apiKey: Deno.env.get('OPENAI_API_KEY'),
-});
+const supabase = createClient(supabaseUrl!, supabaseAnonKey!);
+const openai = new OpenAI({ apiKey: openaiApiKey });
+
+// Configure PDF.js worker source (required for esm.sh usage)
+// Use a CDN link compatible with Deno/Edge Runtime
+pdfjsLib.GlobalWorkerOptions.workerSrc = `https://esm.sh/pdfjs-dist@3.11.174/build/pdf.worker.min.js`;
+
+console.log("Generate Embeddings Function Initialized (v2 - Service Role)");
+
+// --- Helper Functions ---
+
+async function downloadPdf(bucketName: string, storagePath: string): Promise<ArrayBuffer> {
+  console.log(`Downloading PDF from bucket '${bucketName}' at path '${storagePath}'...`);
+  const { data, error } = await supabase.storage
+    .from(bucketName)
+    .download(storagePath);
+
+  if (error) {
+    console.error("Error downloading PDF:", error);
+    throw new Error(`Failed to download PDF: ${error.message}`);
+  }
+  if (!data) {
+    throw new Error("No data received for PDF download.");
+  }
+  console.log("PDF downloaded successfully.");
+  return await data.arrayBuffer();
+}
+
+async function extractTextFromPdf(pdfData: ArrayBuffer): Promise<string> {
+  console.log("Extracting text from PDF...");
+  const loadingTask = pdfjsLib.getDocument({ data: pdfData });
+  const pdf = await loadingTask.promise;
+  let fullText = "";
+  for (let i = 1; i <= pdf.numPages; i++) {
+    const page = await pdf.getPage(i);
+    const textContent = await page.getTextContent();
+    const pageText = textContent.items.map((item: any) => item.str).join(" "); // Type assertion needed if types are strict
+    fullText += pageText + "\n"; // Add newline between pages
+  }
+  console.log(`Text extracted (${fullText.length} characters).`);
+  return fullText;
+}
+
+// Simple chunking function (adjust MAX_CHUNK_SIZE as needed)
+function chunkText(text: string, maxChunkSize: number = 1000): string[] {
+    const chunks: string[] = [];
+    let currentChunk = "";
+    const sentences = text.split(/(?<=[.!?])\s+/); // Split by sentence endings
+
+    for (const sentence of sentences) {
+        if (currentChunk.length + sentence.length + 1 <= maxChunkSize) {
+            currentChunk += (currentChunk ? " " : "") + sentence;
+        } else {
+            if (currentChunk) {
+                chunks.push(currentChunk);
+            }
+            // Handle sentences longer than maxChunkSize (split them further if necessary)
+            if (sentence.length <= maxChunkSize) {
+                 currentChunk = sentence;
+            } else {
+                 // Basic split for oversized sentences
+                 let remainingSentence = sentence;
+                 while(remainingSentence.length > 0) {
+                     chunks.push(remainingSentence.substring(0, maxChunkSize));
+                     remainingSentence = remainingSentence.substring(maxChunkSize);
+                 }
+                 currentChunk = ""; // Reset chunk after handling long sentence
+            }
+        }
+    }
+    if (currentChunk) {
+        chunks.push(currentChunk);
+    }
+    console.log(`Text split into ${chunks.length} chunks.`);
+    return chunks;
+}
+
+
+async function generateEmbeddings(textChunks: string[]): Promise<Array<{ chunk: string; embedding: number[] }>> {
+  console.log(`Generating embeddings for ${textChunks.length} chunks...`);
+  const embeddings = [];
+  const embeddingModel = "text-embedding-ada-002"; // Or your preferred model
+
+  for (const chunk of textChunks) {
+      try {
+          const response = await openai.embeddings.create({
+              model: embeddingModel,
+              input: chunk,
+          });
+          if (response.data && response.data.length > 0) {
+              embeddings.push({ chunk: chunk, embedding: response.data[0].embedding });
+          } else {
+               console.warn(`No embedding generated for chunk: "${chunk.substring(0, 50)}..."`);
+          }
+      } catch (error) {
+          console.error(`Error generating embedding for chunk: "${chunk.substring(0,50)}..."`, error);
+          // Decide how to handle errors: skip chunk, retry, or fail the function?
+          // For now, we skip the chunk with an error
+      }
+  }
+   console.log(`Generated ${embeddings.length} embeddings.`);
+  return embeddings;
+}
+
+async function storeEmbeddings(
+    gacetaUrl: string,
+    embeddingsData: Array<{ chunk: string; embedding: number[] }>
+): Promise<void> {
+    console.log(`Storing ${embeddingsData.length} embeddings in the database...`);
+
+    // Assumes a table 'gaceta_embeddings' exists with columns:
+    // id (uuid, pk), gaceta_url (text), content (text), embedding (vector)
+    const recordsToInsert = embeddingsData.map(data => ({
+        gaceta_url: gacetaUrl,
+        content: data.chunk,
+        embedding: data.embedding,
+    }));
+
+    // Insert in batches if necessary, Supabase client might handle this, but check limits
+    const { error } = await supabase
+        .from("gaceta_embeddings") // Your table name here!
+        .insert(recordsToInsert);
+
+    if (error) {
+        console.error("Error storing embeddings:", error);
+        throw new Error(`Failed to store embeddings: ${error.message}`);
+    }
+    console.log("Embeddings stored successfully.");
+}
+
+
+// --- Main Request Handler ---
 
 serve(async (req: Request) => {
-  // Check for POST method and authorization header
-  if (req.method !== 'POST') {
-    return new Response(JSON.stringify({ error: 'Method Not Allowed' }), { status: 405, headers: { 'Content-Type': 'application/json' } });
-  }
-  const authHeader = req.headers.get('Authorization');
-  if (!authHeader) {
-    return new Response(JSON.stringify({ error: 'Missing authorization header' }), { status: 401, headers: { 'Content-Type': 'application/json' } });
+  // 1. Ensure this is a POST request
+  if (req.method !== "POST") {
+    return new Response(JSON.stringify({ error: "Method Not Allowed" }), {
+      status: 405,
+      headers: { "Content-Type": "application/json" },
+    });
   }
 
-  let supabaseClient: SupabaseClient;
   try {
-    // Create Supabase client with user's auth token
-    supabaseClient = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
-      { global: { headers: { Authorization: authHeader } } }
+    // 2. Parse request body
+    const { storagePath, bucketName, gacetaTitle, gacetaUrl } = await req.json();
+
+    // Basic validation
+    if (!storagePath || !bucketName || !gacetaUrl) {
+       console.error("Missing required parameters in request body.");
+      return new Response(
+        JSON.stringify({ error: "Missing required parameters: storagePath, bucketName, gacetaUrl" }),
+        { status: 400, headers: { "Content-Type": "application/json" } }
+      );
+    }
+    console.log(`Received request for Gaceta: ${gacetaTitle || 'No Title'}, URL: ${gacetaUrl}`);
+
+
+    // 3. Download PDF from Storage
+    const pdfData = await downloadPdf(bucketName, storagePath);
+
+    // 4. Extract text from PDF
+    const text = await extractTextFromPdf(pdfData);
+    if (!text || text.trim().length === 0) {
+        console.warn("No text could be extracted from the PDF.");
+        // Decide how to proceed: store nothing, log error, etc.
+        // For now, we'll return success but note the issue.
+         return new Response(
+            JSON.stringify({ message: "Processed, but no text extracted from PDF.", gacetaUrl }),
+            { status: 200, headers: { "Content-Type": "application/json" } }
+        );
+    }
+
+    // 5. Chunk the text
+    const textChunks = chunkText(text); // Uses default chunk size
+
+    // 6. Generate embeddings for chunks
+    const embeddingsData = await generateEmbeddings(textChunks);
+
+    if (embeddingsData.length === 0) {
+         console.warn("No embeddings were generated (possibly due to errors or empty chunks).");
+         // Decide how to proceed
+          return new Response(
+            JSON.stringify({ message: "Processed, but no embeddings generated.", gacetaUrl }),
+            { status: 200, headers: { "Content-Type": "application/json" } }
+        );
+    }
+
+    // 7. Store embeddings in the database
+    await storeEmbeddings(gacetaUrl, embeddingsData);
+
+    // 8. Return success response
+    console.log(`Successfully processed and generated embeddings for ${gacetaUrl}`);
+    return new Response(
+      JSON.stringify({ message: "Embeddings generated and stored successfully.", gacetaUrl, chunks_processed: embeddingsData.length }),
+      { status: 200, headers: { "Content-Type": "application/json" } }
     );
-  } catch (error) {
-     console.error('Error creating Supabase client:', error);
-     return new Response(JSON.stringify({ error: 'Failed to initialize Supabase client' }), { status: 500, headers: { 'Content-Type': 'application/json' } });
-  }
-
-  try {
-    const { document_id } = await req.json();
-    if (!document_id) {
-      throw new Error('Missing document_id in request body');
-    }
-
-    console.log(`Processing document_id: ${document_id}`);
-
-    // 1. Fetch document metadata (implicitly checks ownership via RLS)
-    const { data: docData, error: docError } = await supabaseClient
-      .from('documents')
-      .select('id, file_path, user_id') // Select user_id for logging/potential checks
-      .eq('id', document_id)
-      .single();
-
-    if (docError) {
-      console.error('Error fetching document:', docError);
-      throw new Error(`Document not found or access denied: ${docError.message}`);
-    }
-    if (!docData) {
-        throw new Error('Document data is null after fetch.');
-    }
-
-    console.log(`Document found: ${docData.id}, Path: ${docData.file_path}`);
-
-    // 2. *** PLACEHOLDER: Fetch PDF from Storage and Extract Text ***
-    // This part needs implementation using a Deno-compatible PDF library
-    // Example: Download file content
-    // const { data: fileData, error: downloadError } = await supabaseClient.storage
-    //   .from('legal_documents')
-    //   .download(docData.file_path);
-    // if (downloadError) throw new Error(`Failed to download file: ${downloadError.message}`);
-    // const fileContent = await fileData.arrayBuffer();
-    // --- Add PDF parsing logic here --- 
-    // const documentText = parsePdf(fileContent); // Replace with actual parsing
-
-    // Using placeholder text for now
-    const documentText = "Este es un texto de ejemplo largo para el documento PDF que necesita ser procesado y dividido en múltiples trozos para generar embeddings. La Constitución de Panamá establece la estructura del gobierno. El Código Penal define los delitos y las penas. La jurisprudencia interpreta las leyes en casos específicos. Este asistente usará RAG para buscar en estos textos. Segundo trozo de ejemplo: El proceso de RAG implica buscar documentos relevantes y luego usar un LLM para generar una respuesta basada en esos documentos y la pregunta original. Tercer trozo: La búsqueda semántica usa vectores de embeddings para encontrar texto con significado similar, no solo coincidencias exactas de palabras.";
-    console.log('Using placeholder text for processing.');
-
-    // --- Update the document with extracted text (optional, if needed elsewhere) ---
-    // await supabaseClient.from('documents').update({ extracted_text: documentText, status: 'processing_text' }).eq('id', document_id);
-
-    // 3. Split text into chunks
-    const chunks = splitTextIntoChunks(documentText); // Use default chunk size
-    if (chunks.length === 0) {
-        throw new Error('No text chunks generated from the document.');
-    }
-    console.log(`Split document into ${chunks.length} chunks.`);
-
-    // 4. Generate embeddings for each chunk
-    const embeddings = [];
-    for (const chunk of chunks) {
-      try {
-        const response = await openai.embeddings.create({
-          model: 'text-embedding-ada-002', // Or use a newer/different model if preferred
-          input: chunk,
-        });
-        if (response.data && response.data.length > 0) {
-             embeddings.push({
-                document_id: document_id,
-                content: chunk,
-                embedding: response.data[0].embedding,
-             });
-        } else {
-             console.warn('OpenAI API did not return embedding for chunk:', chunk.substring(0, 50) + '...');
-        }
-      } catch (embeddingError) {
-         console.error('Error getting embedding for chunk:', chunk.substring(0, 50) + '...', embeddingError);
-         // Decide: stop processing? skip chunk? For now, we skip.
-      }
-    }
-
-    if (embeddings.length === 0) {
-        throw new Error('Failed to generate any embeddings for the document chunks.');
-    }
-    console.log(`Generated ${embeddings.length} embeddings.`);
-
-    // 5. Insert embeddings into the database
-    // Use service role client ONLY IF necessary for bypassing RLS on this internal table,
-    // otherwise, continue with user client if RLS allows insertion.
-    // Assuming RLS allows user to insert embeddings for their own docs:
-    const { error: insertEmbeddingsError } = await supabaseClient
-      .from('document_embeddings')
-      .insert(embeddings); // Batch insert
-
-    if (insertEmbeddingsError) {
-      console.error('Error inserting embeddings:', insertEmbeddingsError);
-      throw new Error(`Failed to store embeddings: ${insertEmbeddingsError.message}`);
-    }
-    console.log(`Successfully inserted ${embeddings.length} embeddings.`);
-
-    // 6. Update document status to 'processed'
-    const { error: updateError } = await supabaseClient
-      .from('documents')
-      .update({ status: 'processed', processed_at: new Date().toISOString() })
-      .eq('id', document_id);
-
-    if (updateError) {
-      console.error('Error updating document status:', updateError);
-      // Log error but don't necessarily fail the whole process if embeddings were saved
-    }
-    console.log(`Updated document status to processed for: ${document_id}`);
-
-    return new Response(JSON.stringify({ message: `Successfully processed document ${document_id} and generated ${embeddings.length} embeddings.` }), {
-      status: 200,
-      headers: { 'Content-Type': 'application/json' },
-    });
 
   } catch (error) {
-    console.error('Function error:', error);
-    // Attempt to update document status to 'error' if document_id was retrieved
-    try {
-        const body = await req.json(); // Re-parse to get ID for error update
-        if (body.document_id && supabaseClient) {
-            await supabaseClient.from('documents').update({ status: 'error' }).eq('id', body.document_id);
-        }
-    } catch (updateErr) {
-        console.error('Failed to update document status to error:', updateErr);
-    }
-    return new Response(JSON.stringify({ error: error.message }), {
-      status: 500,
-      headers: { 'Content-Type': 'application/json' },
-    });
+    console.error("Error processing request:", error);
+    return new Response(
+      JSON.stringify({ error: "Internal Server Error", details: error.message }),
+      { status: 500, headers: { "Content-Type": "application/json" } }
+    );
   }
-})
+});
 
 /* To invoke locally:
 
@@ -202,3 +245,4 @@ serve(async (req: Request) => {
     --data '{"name":"Functions"}'
 
 */
+

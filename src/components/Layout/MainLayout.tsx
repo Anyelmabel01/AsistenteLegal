@@ -1,3 +1,5 @@
+"use client";
+
 import React, { ReactNode } from 'react';
 import Sidebar from './Sidebar';
 import { useAuth } from '../../contexts/AuthContext'; // Import useAuth for user info
@@ -10,7 +12,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
     const { user, signOut } = useAuth(); // Get user and signOut from context
 
   return (
-    <div>
+    <div className="bg-gray-100">
       {/* Static sidebar for desktop */}
       <div className="hidden lg:fixed lg:inset-y-0 lg:z-50 lg:flex lg:w-72 lg:flex-col">
         <Sidebar />

@@ -7,6 +7,7 @@ import Register from '../components/Register';
 import Layout from '../src/components/Layout/MainLayout';
 import { getUserDocuments, uploadDocument } from '../utils/documentService';
 import ChatInterface from '../components/ChatInterface';
+import DocumentTable from '../components/DocumentTable';
 
 // Componente para subir documentos
 const DocumentUploader = ({ onUpload }) => {
@@ -92,64 +93,6 @@ const DocumentUploader = ({ onUpload }) => {
   );
 };
 
-// Componente de tabla para mostrar documentos
-const DocumentTable = ({ documents, isLoading }) => {
-  if (isLoading) {
-    return <div className="text-center py-4 text-gray-600">Cargando documentos...</div>;
-  }
-
-  if (!documents || documents.length === 0) {
-    return (
-      <div className="text-center py-4 text-gray-500 italic">
-        No hay documentos disponibles. Sube tu primer documento.
-      </div>
-    );
-  }
-
-  return (
-    <div className="overflow-x-auto bg-white rounded-lg shadow-md border border-gray-200">
-      <table className="min-w-full divide-y divide-gray-200">
-        <thead className="bg-gray-50">
-          <tr>
-            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nombre</th>
-            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tipo</th>
-            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Fuente</th>
-            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Estado</th>
-            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Fecha</th>
-          </tr>
-        </thead>
-        <tbody className="bg-white divide-y divide-gray-200">
-          {documents.map((doc) => (
-            <tr key={doc.id} className="hover:bg-gray-50">
-              <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{doc.file_name}</td>
-              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 capitalize">{doc.document_type}</td>
-              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{doc.source}</td>
-              <td className="px-6 py-4 whitespace-nowrap">
-                <span
-                  className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                    doc.status === 'processed'
-                      ? 'bg-green-100 text-green-800'
-                      : doc.status === 'pending'
-                      ? 'bg-yellow-100 text-yellow-800'
-                      : doc.status === 'processing'
-                      ? 'bg-blue-100 text-blue-800'
-                      : 'bg-red-100 text-red-800'
-                  }`}
-                >
-                  {doc.status || 'desconocido'}
-                </span>
-              </td>
-              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                {doc.created_at ? new Date(doc.created_at).toLocaleDateString() : '-'}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
-};
-
 export default function Home() {
   const { user, loading, signOut } = useAuth();
   const [showLogin, setShowLogin] = useState(true);
@@ -225,27 +168,22 @@ export default function Home() {
 
   return (
     <Layout>
-      <div className="flex justify-end mb-4">
-        <button 
-          onClick={signOut} 
-          className="px-4 py-2 bg-red-500 text-white rounded-md hover:bg-red-600 text-sm font-medium"
-        >
-          Cerrar Sesión
-        </button>
-      </div>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-        <div className="space-y-6">
+      {/* Remove grid layout and document components */}
+      {/* <div className="grid grid-cols-1 md:grid-cols-2 gap-8"> */}
+        {/* <div className="space-y-6">
           <DocumentUploader onUpload={handleDocumentUpload} />
           {uploadError && <p className="text-red-500 text-sm mt-2">{uploadError}</p>}
           <h2 className="text-xl font-semibold text-gray-700 mt-6 mb-4">Mis Documentos</h2>
           <DocumentTable documents={documents} isLoading={isLoadingDocs} />
-        </div>
+        </div> */}
 
+        {/* Keep only the ChatInterface */}
         <div>
-          <h2 className="text-xl font-semibold text-gray-700 mb-4">Chat Asistente</h2>
+          {/* Optional: Remove or keep the title */}
+          {/* <h2 className="text-xl font-semibold text-gray-700 mb-4">Chat Asistente</h2> */}
           <ChatInterface />
         </div>
-      </div>
+      {/* </div> */}
     </Layout>
   );
 } 

@@ -4,6 +4,7 @@ import Login from './components/Auth/Login';
 import Register from './components/Auth/Register';
 import MainLayout from './components/Layout/MainLayout';
 import DocumentUpload from './components/KnowledgeBase/DocumentUpload';
+import DocumentsList from './components/KnowledgeBase/DocumentsList';
 
 function App() {
   const { session, loading } = useAuth();
@@ -23,7 +24,18 @@ function App() {
 
   return (
     <MainLayout>
-      <DocumentUpload />
+      <h1 className="text-2xl font-bold mb-6">Gestión de Documentos Legales</h1>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        {/* Columna para subir documentos */}
+        <div className="md:col-span-1">
+          <DocumentUpload />
+        </div>
+        
+        {/* Columna para la lista de documentos */}
+        <div className="md:col-span-2">
+          <DocumentsList />
+        </div>
+      </div>
     </MainLayout>
   );
 }

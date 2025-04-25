@@ -1,0 +1,14 @@
+{
+  "functions": [
+    {
+      "name": "scrape-gaceta-oficial",
+      "schedule": "0 12 * * *",
+      "description": "Scrape Gaceta Oficial daily at 12:00 PM"
+    },
+    {
+      "name": "scrape-organo-judicial",
+      "schedule": "0 13 * * *",
+      "description": "Scrape Órgano Judicial fallos daily at 1:00 PM"
+    }
+  ]
+} 

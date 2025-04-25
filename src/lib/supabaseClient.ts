@@ -1,41 +1,48 @@
 import { createClient } from '@supabase/supabase-js';
 
-// Load environment variables in development. In production, these should be set in the environment.
-// Note: This basic setup assumes client-side usage. For server-side (Edge Functions),
-// environment variables are typically accessed directly via Deno.env.get().
-// Also, vite handles env vars automatically using import.meta.env.
+// Obtener URL y clave anónima desde variables de entorno
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
 
-// Since we don't have a build tool configured yet that handles env vars,
-// we read them directly here. THIS IS NOT IDEAL FOR PRODUCTION BUNDLES.
-// A build tool like Vite or Next.js is recommended.
-
-// Access environment variables using Vite's import.meta.env
-// Variables must be prefixed with VITE_ in the .env file
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-
+// Verificar que las variables están definidas
 if (!supabaseUrl || !supabaseAnonKey) {
-  throw new Error('Missing Supabase URL or Anon Key in environment variables. Did you forget to prefix them with VITE_ in your .env file?');
+  console.error(
+    'Error: Las variables de entorno NEXT_PUBLIC_SUPABASE_URL y NEXT_PUBLIC_SUPABASE_ANON_KEY deben estar definidas.'
+  );
 }
 
-// Temporary direct access for simplicity (replace with build tool integration)
-// Ensure your .env file is correctly loaded if running locally without Vite/Next.js
-const TEMP_SUPABASE_URL = 'https://rrawbornbfgohynokhzo.supabase.co';
-const TEMP_SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJyYXdib3JuYmZnb2h5bm9raHpvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDQ5MDIyNTAsImV4cCI6MjA2MDQ3ODI1MH0.z_Onm3bVK1ZmQFMx23B9JywAyPMNvt5ea2ltL7QyZYM';
-
-if (!TEMP_SUPABASE_URL || !TEMP_SUPABASE_ANON_KEY) {
-  console.error('Missing Supabase URL or Anon Key');
-  // In a real app, provide default values or throw an error
-}
-
-export const supabase = createClient(TEMP_SUPABASE_URL!, TEMP_SUPABASE_ANON_KEY!, {
-    auth: {
-        // Supabase client handles storage automatically, but you can specify options
-        // autoRefreshToken: true,
-        // persistSession: true,
-        // detectSessionInUrl: false,
-    },
+// Crear cliente de Supabase
+export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+  auth: {
+    persistSession: true,
+    autoRefreshToken: true,
+  },
 });
 
-// Log to confirm (remove in production)
-console.log('Supabase client initialized using Vite env vars'); 
+// Utility function to get public URL for stored files
+export const getPublicUrl = (bucket: string, filePath: string): string => {
+  const { data } = supabase.storage.from(bucket).getPublicUrl(filePath);
+  return data.publicUrl;
+};
+
+// Get info for the signed-in user
+export const getCurrentUser = async () => {
+  const { data: { user }, error } = await supabase.auth.getUser();
+  if (error) {
+    console.error('Error getting user:', error.message);
+    return null;
+  }
+  return user;
+};
+
+// Check if a session exists
+export const checkSession = async () => {
+  const { data: { session }, error } = await supabase.auth.getSession();
+  if (error) {
+    console.error('Error checking session:', error.message);
+    return null;
+  }
+  return session;
+};
+
+export default supabase; 

@@ -24,7 +24,19 @@ const createSupabaseClient = () => {
 
   // Create the client if all variables are present
   try {
-    return createClient(supabaseUrl, supabaseAnonKey);
+    const client = createClient(supabaseUrl, supabaseAnonKey, {
+      auth: {
+        persistSession: true,
+        autoRefreshToken: true,
+      }
+    });
+    
+    // Verificar que el cliente se ha creado correctamente
+    if (!client) {
+      throw new Error('Failed to initialize Supabase client');
+    }
+    
+    return client;
   } catch (error) {
     console.error('Error creating Supabase client:', error);
     return null;

@@ -1,90 +1,156 @@
 'use client';
 
-import { createContext, useState, useEffect, useContext } from 'react';
-import { supabase } from '../supabaseClient'; // Assuming supabaseClient is in the root
-import Loading from '../components/Loading'; // Assuming Loading component exists
+import React, { createContext, useState, useEffect, useContext } from 'react';
+import { supabase } from '../src/lib/supabaseClient';
+import Loading from '../components/Loading';
 
-const AuthContext = createContext();
+// Define the AuthContext
+const AuthContext = createContext(undefined);
 
-export const AuthProvider = ({ children }) => {
+// The AuthProvider component that wraps your app and provides the context value
+export function AuthProvider({ children }) {
+  const [session, setSession] = useState(null);
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Check if Supabase client is initialized
-    if (!supabase) {
-      console.error("Supabase client is not initialized");
-      setLoading(false);
-      return;
-    }
-
-    const checkUser = async () => {
+    // Get initial session
+    const getInitialSession = async () => {
       try {
-        const { data: { session }, error } = await supabase.auth.getSession();
-
-        if (error) {
-          console.error("Error getting session:", error.message);
-          setUser(null);
-        } else {
-          setUser(session?.user ?? null);
+        setLoading(true);
+        
+        if (!supabase) {
+          console.error('Supabase client is not initialized');
+          setLoading(false);
+          return;
         }
-      } catch (e) {
-        console.error("Error checking user:", e.message);
-        setUser(null);
+        
+        const { data, error } = await supabase.auth.getSession();
+        
+        if (error) {
+          console.error('Error getting session:', error);
+          throw error;
+        }
+        
+        setSession(data.session);
+        setUser(data.session?.user ?? null);
+      } catch (error) {
+        console.error('Error in getInitialSession:', error);
       } finally {
         setLoading(false);
       }
     };
 
-    checkUser();
+    getInitialSession();
 
-    // Only set up listener if supabase client exists
-    let authListener = null;
-    try {
-      const { data } = supabase.auth.onAuthStateChange(
-        async (event, session) => {
-          console.log('Auth event:', event);
-          setUser(session?.user ?? null);
-          setLoading(false);
-        }
-      );
-      
-      authListener = data;
-    } catch (e) {
-      console.error("Error setting up auth listener:", e.message);
+    if (!supabase) {
+      console.error('Supabase client is not initialized, auth state changes not being monitored');
+      return () => {};
     }
 
-    // Cleanup function
+    // Set up auth state change listener
+    const { data: authListener } = supabase.auth.onAuthStateChange(async (event, newSession) => {
+      console.log('Auth state changed:', event);
+      setSession(newSession);
+      setUser(newSession?.user ?? null);
+    });
+
+    // Clean up subscription
     return () => {
-      if (authListener && authListener.subscription) {
-          authListener.subscription.unsubscribe();
+      if (authListener?.subscription) {
+        authListener.subscription.unsubscribe();
       }
     };
   }, []);
 
-  const value = {
-    user,
-    loading,
-    signUp: (data) => supabase ? supabase.auth.signUp(data) : Promise.reject('Supabase client not initialized'),
-    signIn: (data) => supabase ? supabase.auth.signInWithPassword(data) : Promise.reject('Supabase client not initialized'),
-    signOut: () => supabase ? supabase.auth.signOut() : Promise.reject('Supabase client not initialized'),
+  // Sign in function
+  const signIn = async (email, password) => {
+    try {
+      if (!supabase) {
+        console.error('Supabase client is not initialized');
+        return { error: new Error('Authentication service unavailable') };
+      }
+      
+      const { data, error } = await supabase.auth.signInWithPassword({ 
+        email, 
+        password 
+      });
+      
+      if (error) {
+        return { error };
+      }
+      
+      return { data, error: null };
+    } catch (error) {
+      console.error('Exception during sign in:', error);
+      return { error };
+    }
   };
 
+  // Sign up function
+  const signUp = async ({ email, password }) => {
+    try {
+      if (!supabase) {
+        console.error('Supabase client is not initialized');
+        return { error: new Error('Authentication service unavailable') };
+      }
+      
+      const { data, error } = await supabase.auth.signUp({ 
+        email, 
+        password 
+      });
+      
+      if (error) {
+        return { error };
+      }
+      
+      return { data, error: null };
+    } catch (error) {
+      console.error('Exception during sign up:', error);
+      return { error };
+    }
+  };
+
+  // Sign out function
+  const signOut = async () => {
+    try {
+      if (!supabase) {
+        console.error('Supabase client is not initialized');
+        return;
+      }
+      
+      const { error } = await supabase.auth.signOut();
+      if (error) throw error;
+    } catch (error) {
+      console.error('Error signing out:', error);
+    }
+  };
+
+  // Context value with auth state and functions
+  const value = {
+    session,
+    user,
+    signIn,
+    signUp,
+    signOut,
+    loading,
+  };
+
+  // Provide the context value to children
   return (
     <AuthContext.Provider value={value}>
-      {loading ? <Loading /> : children}
+      {!loading ? children : <Loading />}
     </AuthContext.Provider>
   );
-};
+}
 
 // Custom hook to use the auth context
-export const useAuth = () => {
+export function useAuth() {
   const context = useContext(AuthContext);
+  
   if (context === undefined) {
     throw new Error('useAuth must be used within an AuthProvider');
   }
+  
   return context;
-};
-
-// Export the context itself if needed directly (e.g., in class components or specific scenarios)
-export { AuthContext }; 
+} 

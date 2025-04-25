@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import ChatMessage from './ChatMessage';
 import ChatInput from './ChatInput';
-import { supabase } from '../supabaseClient';
-import { useAuth } from '../src/contexts/AuthContext';
+import { supabase } from '../src/lib/supabaseClient';
+import { useAuth } from '../context/AuthContext';
 import { generateCompletion } from '../utils/openai'; // Assuming OpenAI utility exists
 
 const ChatInterface = () => {
@@ -11,7 +11,6 @@ const ChatInterface = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [isLoadingHistory, setIsLoadingHistory] = useState(true); // State for loading history
   const [error, setError] = useState(null);
-  // const [sessionId, setSessionId] = useState(null); // We might not need explicit session ID for now if loading all user messages
   const messagesEndRef = useRef(null);
 
   // Function to scroll to the bottom of messages
@@ -52,7 +51,6 @@ const ChatInterface = () => {
               content: 'Hola! Soy tu asistente legal. ¿En qué puedo ayudarte hoy?',
               created_at: new Date().toISOString(),
               user_id: user.id, // Assign to user for consistency, though it's assistant
-              // session_id: null, // Decide on session strategy if needed
             },
           ]);
         }
@@ -90,7 +88,6 @@ const ChatInterface = () => {
       content: inputText,
       created_at: new Date().toISOString(), // Keep for immediate display
       user_id: user.id,
-      // session_id: sessionId, // Add back if using specific sessions
     };
 
     // Optimistically add user message to UI
@@ -102,9 +99,6 @@ const ChatInterface = () => {
     const historyForAI = messages.map(msg => ({ role: msg.role, content: msg.content }));
     historyForAI.push({ role: 'user', content: inputText }); // Add the new user message
 
-    // Limit history length if necessary (e.g., last 10 messages) to avoid large payloads
-    // const limitedHistory = historyForAI.slice(-10); 
-
     try {
       // 1. Save user message to Supabase (get the real ID back)
       const { data: savedUserMessage, error: insertError } = await supabase
@@ -113,7 +107,6 @@ const ChatInterface = () => {
             role: userMessage.role,
             content: userMessage.content,
             user_id: userMessage.user_id,
-            // session_id: userMessage.session_id, // Add back if using sessions
         })
         .select()
         .single();
@@ -140,7 +133,6 @@ const ChatInterface = () => {
         role: 'assistant',
         content: assistantResponseContent,
         user_id: user.id, // Still associate with the user for RLS
-        // session_id: sessionId, // Add back if using sessions
       };
 
       // 3. Save assistant message to Supabase
@@ -161,22 +153,50 @@ const ChatInterface = () => {
     } catch (err) {
       console.error('Error handling message:', err);
       setError(`Error: ${err.message}. Intenta de nuevo.`);
-      // Revert optimistic UI update if saving user message failed
-      // setMessages((prevMessages) => prevMessages.filter(msg => msg.id !== `temp-${userMessage.id}`));
     } finally {
       setIsLoading(false);
     }
   };
 
   return (
-    <div className="flex flex-col h-[600px] bg-white rounded-lg shadow-md overflow-hidden border border-gray-200">
+    <div className="flex flex-col h-[calc(100vh-120px)] bg-gradient-to-br from-primary-50 to-secondary-50 rounded-xl shadow-hover overflow-hidden border border-primary-100 transition-all duration-300 hover:shadow-lg">
+      {/* Header */}
+      <div className="bg-white border-b border-primary-100 p-4 flex items-center justify-between animate-fade-in">
+        <div className="flex items-center space-x-3">
+          <div className="h-10 w-10 rounded-full bg-primary-600 flex items-center justify-center">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8h2a2 2 0 012 2v6a2 2 0 01-2 2h-2v4l-4-4H9a1.994 1.994 0 01-1.414-.586m0 0L11 14h4a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2v4l.586-.586z" />
+            </svg>
+          </div>
+          <div>
+            <h2 className="font-semibold text-lg text-secondary-800">Asistente Legal</h2>
+            <p className="text-xs text-secondary-500">Disponible 24/7</p>
+          </div>
+        </div>
+        {isLoading && (
+          <div className="flex items-center text-primary-600 text-sm">
+            <div className="animate-pulse-slow mr-2 h-2 w-2 rounded-full bg-primary-600"></div>
+            <div className="animate-pulse-slow animation-delay-300 mr-2 h-2 w-2 rounded-full bg-primary-600"></div>
+            <div className="animate-pulse-slow animation-delay-600 h-2 w-2 rounded-full bg-primary-600"></div>
+          </div>
+        )}
+      </div>
+
       {/* Message Display Area */}
-      <div className="flex-grow p-4 overflow-y-auto space-y-4 bg-gray-50">
+      <div className="flex-grow p-4 overflow-y-auto space-y-4 bg-opacity-50">
         {isLoadingHistory ? (
-            <div className="flex justify-center items-center h-full text-gray-500">Cargando historial...</div>
+            <div className="flex justify-center items-center h-full">
+              <div className="animate-bounce-subtle flex space-x-1">
+                <div className="w-3 h-3 bg-primary-400 rounded-full"></div>
+                <div className="w-3 h-3 bg-primary-500 rounded-full animation-delay-200"></div>
+                <div className="w-3 h-3 bg-primary-600 rounded-full animation-delay-400"></div>
+              </div>
+            </div>
         ) : (
           messages.map((msg) => (
-            <ChatMessage key={msg.id} message={msg} />
+            <div key={msg.id} className="animate-fade-in">
+              <ChatMessage message={msg} />
+            </div>
           ))
         )}
         {/* Ref to scroll to */}
@@ -185,13 +205,15 @@ const ChatInterface = () => {
 
       {/* Error Display */}
       {error && (
-        <div className="p-2 bg-red-100 text-red-700 text-sm text-center">
+        <div className="p-2 bg-red-100 text-red-700 text-sm text-center animate-fade-in">
           {error}
         </div>
       )}
 
       {/* Input Area */}
-      <ChatInput onSendMessage={handleSendMessage} isLoading={isLoading} />
+      <div className="bg-white border-t border-primary-100 animate-slide-in">
+        <ChatInput onSendMessage={handleSendMessage} isLoading={isLoading} />
+      </div>
     </div>
   );
 };

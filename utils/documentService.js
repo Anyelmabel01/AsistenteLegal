@@ -1,4 +1,4 @@
-import { supabase } from '../supabaseClient';
+import { supabase } from '../src/lib/supabaseClient';
 import { generateEmbedding } from './openai';
 
 /**
@@ -282,4 +282,102 @@ export async function semanticSearch(queryText, userId, limit = 5, threshold = 0
       error: error.message
     };
   }
+}
+
+/**
+ * Extrae entidades relevantes de un texto legal usando spaCy en Python
+ * Nota: Requiere un servicio backend con spaCy instalado
+ * @param {string} text - Texto del documento legal
+ * @returns {Promise<Array>} - Arreglo de entidades encontradas
+ */
+export async function extractEntitiesWithSpacy(text) {
+  try {
+    // Crear una instancia para enviar al servicio de procesamiento de spaCy
+    const response = await fetch('/api/extract-entities', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ text }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Error al procesar las entidades: ${response.statusText}`);
+    }
+
+    const { entities } = await response.json();
+    return entities;
+  } catch (error) {
+    console.error('Error en la extracción de entidades:', error);
+    return [];
+  }
+}
+
+/**
+ * Procesa un documento legal para extraer entidades, fechas importantes y personas
+ * @param {string} text - Texto del documento legal
+ * @returns {Promise<Object>} - Objeto con entidades clasificadas
+ */
+export async function processLegalDocument(text) {
+  try {
+    // Extracción de entidades con spaCy
+    const entities = await extractEntitiesWithSpacy(text);
+    
+    // Análisis de fechas importantes (plazos, vencimientos, etc.)
+    const importantDates = findImportantDates(text);
+    
+    // Clasificación de entidades por tipo
+    const classifiedEntities = {
+      persons: entities.filter(e => e.type === 'PER' || e.type === 'PERSON'),
+      organizations: entities.filter(e => e.type === 'ORG' || e.type === 'ORGANIZATION'),
+      locations: entities.filter(e => e.type === 'LOC' || e.type === 'GPE' || e.type === 'LOCATION'),
+      laws: entities.filter(e => e.type === 'LAW' || e.type === 'NORM'),
+      dates: importantDates,
+      other: entities.filter(e => !['PER', 'PERSON', 'ORG', 'ORGANIZATION', 'LOC', 'GPE', 'LOCATION', 'LAW', 'NORM'].includes(e.type))
+    };
+    
+    return classifiedEntities;
+  } catch (error) {
+    console.error('Error al procesar documento legal:', error);
+    return {
+      persons: [],
+      organizations: [],
+      locations: [],
+      laws: [],
+      dates: [],
+      other: []
+    };
+  }
+}
+
+/**
+ * Encuentra fechas importantes y plazos en un texto legal
+ * @param {string} text - Texto del documento legal
+ * @returns {Array} - Arreglo de fechas importantes con contexto
+ */
+function findImportantDates(text) {
+  const dateRegex = /\b(\d{1,2}[-/]\d{1,2}[-/]\d{2,4}|\d{1,2} de [a-zá-úüñ]+ de \d{2,4})\b/gi;
+  const deadlineTerms = /\b(plazo|término|vence|caduca|prescribe|fecha límite)\b/i;
+  
+  const dates = [];
+  const sentences = text.split(/[.!?]+/);
+  
+  sentences.forEach(sentence => {
+    const match = sentence.match(dateRegex);
+    if (match && deadlineTerms.test(sentence)) {
+      dates.push({
+        date: match[0],
+        context: sentence.trim(),
+        isDeadline: true
+      });
+    } else if (match) {
+      dates.push({
+        date: match[0],
+        context: sentence.trim(),
+        isDeadline: false
+      });
+    }
+  });
+  
+  return dates;
 } 

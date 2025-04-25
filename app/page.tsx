@@ -1,155 +1,196 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { useAuth } from '../src/contexts/AuthContext';
-import Login from '../components/Login';
-import Register from '../components/Register';
+import React, { useState, useEffect, ChangeEvent, FormEvent } from 'react';
+import { useAuth } from '../context/AuthContext';
+import Login from '../src/components/Auth/Login';
+import Register from '../src/components/Auth/Register';
 import Layout from '../src/components/Layout/MainLayout';
-import { getUserDocuments, uploadDocument } from '../utils/documentService';
+import { getUserDocuments, uploadDocument, Document } from '../utils/documentService';
 import ChatInterface from '../components/ChatInterface';
 import DocumentTable from '../components/DocumentTable';
 
-// Componente para subir documentos
-const DocumentUploader = ({ onUpload }) => {
-  const [file, setFile] = useState(null);
-  const [documentType, setDocumentType] = useState('constitucion');
-  const [source, setSource] = useState('user_upload');
-  const [isUploading, setIsUploading] = useState(false);
+// Define Document type if not imported
+// interface Document { id: string; name: string; type: string; /* ... other fields */ }
 
-  const handleFileChange = (e) => {
+// Define props for DocumentUploader
+interface DocumentUploaderProps {
+  onUpload: (file: File, documentType: string, source: string) => Promise<void>;
+}
+
+// DocumentUploader component
+const DocumentUploader: React.FC<DocumentUploaderProps> = ({ onUpload }) => {
+  const [file, setFile] = useState<File | null>(null);
+  const [documentType, setDocumentType] = useState('contrato');
+  const [source, setSource] = useState('cliente');
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+
+  // Handle file input change
+  const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       setFile(e.target.files[0]);
+      setUploadError(null); // Clear any previous errors
     }
   };
 
-  const handleSubmit = async (e) => {
+  // Handle form submission
+  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    if (!file) return;
-
+    
+    if (!file) {
+      setUploadError('Por favor selecciona un archivo');
+      return;
+    }
+    
     setIsUploading(true);
-    await onUpload(file, documentType, source);
-    setFile(null);
-    setIsUploading(false);
+    setUploadError(null);
+    
+    try {
+      await onUpload(file, documentType, source);
+      // Reset form after successful upload
+      setFile(null);
+      setDocumentType('contrato');
+      setSource('cliente');
+      // Reset the file input (need to access DOM directly)
+      const fileInput = document.getElementById('fileInput') as HTMLInputElement;
+      if (fileInput) fileInput.value = '';
+    } catch (error) {
+      console.error('Error uploading document:', error);
+      setUploadError('Error al subir el documento. Inténtalo de nuevo.');
+    } finally {
+      setIsUploading(false);
+    }
   };
 
   return (
-    <div className="bg-white p-6 rounded-lg shadow-md border border-gray-200">
-      <h2 className="text-xl font-semibold mb-4 text-gray-700">Subir Documento Legal</h2>
-      <form onSubmit={handleSubmit}>
-        <div className="mb-4">
-          <label className="block text-sm font-medium text-gray-700 mb-1">Archivo</label>
-          <input
-            type="file"
-            onChange={handleFileChange}
-            className="block w-full text-sm text-gray-900 border border-gray-300 rounded-lg cursor-pointer bg-gray-50 focus:outline-none file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
-            accept=".pdf,.doc,.docx,.txt"
-          />
-        </div>
-        
-        <div className="mb-4">
-          <label className="block text-sm font-medium text-gray-700 mb-1">Tipo de Documento</label>
-          <select
-            value={documentType}
-            onChange={(e) => setDocumentType(e.target.value)}
-            className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-          >
-            <option value="constitucion">Constitución</option>
-            <option value="ley">Ley</option>
-            <option value="codigo">Código</option>
-            <option value="jurisprudencia">Jurisprudencia</option>
-            <option value="contrato">Contrato</option>
-            <option value="demanda">Demanda</option>
-            <option value="otro">Otro</option>
-          </select>
-        </div>
-        
-        <div className="mb-4">
-          <label className="block text-sm font-medium text-gray-700 mb-1">Fuente</label>
-          <select
-            value={source}
-            onChange={(e) => setSource(e.target.value)}
-            className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-          >
-            <option value="user_upload">Subida por usuario</option>
-            <option value="Gaceta Oficial">Gaceta Oficial</option>
-            <option value="Organo Judicial">Órgano Judicial</option>
-            <option value="otro">Otra fuente</option>
-          </select>
-        </div>
-        
-        <button
-          type="submit"
-          disabled={!file || isUploading}
-          className={`w-full py-2 px-4 rounded-md text-sm font-semibold transition duration-150 ease-in-out ${
-            !file || isUploading
-              ? 'bg-gray-400 cursor-not-allowed'
-              : 'bg-blue-600 hover:bg-blue-700 text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2'
-          }`}
+    <form onSubmit={handleSubmit} className="space-y-4 bg-white p-6 rounded-lg shadow">
+      <h2 className="text-xl font-semibold text-gray-800">Subir Documento</h2>
+      
+      <div>
+        <label htmlFor="fileInput" className="block text-sm font-medium text-gray-700 mb-1">
+          Selecciona un archivo
+        </label>
+        <input
+          id="fileInput"
+          type="file"
+          accept=".pdf,.doc,.docx,.txt"
+          onChange={handleFileChange}
+          className="block w-full text-sm text-gray-500 
+            file:mr-4 file:py-2 file:px-4 
+            file:rounded-md file:border-0 
+            file:text-sm file:font-semibold 
+            file:bg-primary-50 file:text-primary-700 
+            hover:file:bg-primary-100"
+        />
+        {file && (
+          <p className="mt-1 text-sm text-gray-500">
+            Archivo seleccionado: {file.name}
+          </p>
+        )}
+      </div>
+      
+      <div>
+        <label htmlFor="documentType" className="block text-sm font-medium text-gray-700 mb-1">
+          Tipo de Documento
+        </label>
+        <select
+          id="documentType"
+          value={documentType}
+          onChange={(e) => setDocumentType(e.target.value)}
+          className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
         >
-          {isUploading ? 'Subiendo...' : 'Subir Documento'}
-        </button>
-      </form>
-    </div>
+          <option value="contrato">Contrato</option>
+          <option value="ley">Ley</option>
+          <option value="jurisprudencia">Jurisprudencia</option>
+          <option value="otro">Otro</option>
+        </select>
+      </div>
+      
+      <div>
+        <label htmlFor="source" className="block text-sm font-medium text-gray-700 mb-1">
+          Fuente del Documento
+        </label>
+        <select
+          id="source"
+          value={source}
+          onChange={(e) => setSource(e.target.value)}
+          className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
+        >
+          <option value="cliente">Cliente</option>
+          <option value="gaceta_oficial">Gaceta Oficial</option>
+          <option value="organo_judicial">Órgano Judicial</option>
+          <option value="otro">Otro</option>
+        </select>
+      </div>
+      
+      {uploadError && (
+        <p className="text-sm text-red-600">{uploadError}</p>
+      )}
+      
+      <button
+        type="submit"
+        disabled={isUploading || !file}
+        className="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 disabled:opacity-50 disabled:cursor-not-allowed"
+      >
+        {isUploading ? 'Subiendo...' : 'Subir Documento'}
+      </button>
+    </form>
   );
 };
 
 export default function Home() {
-  const { user, loading, signOut } = useAuth();
+  const { user } = useAuth();
   const [showLogin, setShowLogin] = useState(true);
-  const [documents, setDocuments] = useState<any[]>([]);
+  const [documents, setDocuments] = useState<Document[]>([]);
   const [isLoadingDocs, setIsLoadingDocs] = useState(false);
-  const [uploadError, setUploadError] = useState<string | null>(null);
+  const [uploadSuccess, setUploadSuccess] = useState(false);
+  const [isMounted, setIsMounted] = useState(false);
 
-  // Función para cargar documentos del usuario
-  const loadUserDocuments = async () => {
+  // Set isMounted to true on client side
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
+
+  // Fetch user's documents when the component mounts or user changes
+  useEffect(() => {
+    if (user) {
+      fetchDocuments();
+    }
+  }, [user]);
+
+  // Function to fetch documents
+  const fetchDocuments = async () => {
     if (!user) return;
-
+    
     setIsLoadingDocs(true);
     try {
-      const result = await getUserDocuments(user.id);
-      if (result.success) {
-        setDocuments(result.documents);
-      } else {
-        console.error('Error al cargar documentos:', result.error);
-      }
+      const docs = await getUserDocuments(user.id);
+      setDocuments(docs);
     } catch (error) {
-      console.error('Error al cargar documentos:', error);
+      console.error('Error fetching documents:', error);
     } finally {
       setIsLoadingDocs(false);
     }
   };
 
-  // Cargar documentos cuando el usuario inicia sesión
-  useEffect(() => {
-    if (user) {
-      setShowLogin(false);
-      loadUserDocuments();
-    } else {
-      setShowLogin(true);
-      setDocuments([]);
-    }
-  }, [user]);
-
-  // Manejar la subida de documentos
-  const handleDocumentUpload = async (file, documentType, source) => {
+  // Handle document upload
+  const handleUploadDocument = async (file: File, documentType: string, source: string) => {
     if (!user) return;
-    setUploadError(null);
-
+    
     try {
-      const uploadResult = await uploadDocument(file, documentType, source, user.id);
-      if (uploadResult.success) {
-        setTimeout(loadUserDocuments, 1000);
-      } else {
-        setUploadError(`Error al subir documento: ${uploadResult.error}`);
-      }
+      await uploadDocument(file, documentType, source, user.id);
+      setUploadSuccess(true);
+      setTimeout(() => setUploadSuccess(false), 3000);
+      fetchDocuments(); // Refresh documents list
     } catch (error) {
-      setUploadError(`Error inesperado al subir: ${error.message}`);
-      console.error('Upload exception:', error);
+      console.error('Error uploading document:', error);
+      throw error; // Let the uploader component handle the error
     }
   };
 
-  if (loading) {
-    return <div className="flex justify-center items-center min-h-screen"><p>Cargando...</p></div>; 
+  // Display nothing while client-side JavaScript is loading
+  if (!isMounted) {
+    return null;
   }
 
   if (!user) {
@@ -157,9 +198,9 @@ export default function Home() {
       <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4">
         <div className="max-w-md w-full space-y-8">
           {showLogin ? (
-            <Login onSwitch={() => setShowLogin(false)} />
+            <Login onSwitchToRegister={() => setShowLogin(false)} />
           ) : (
-            <Register onSwitch={() => setShowLogin(true)} />
+            <Register onSwitchToLogin={() => setShowLogin(true)} />
           )}
         </div>
       </div>
@@ -168,22 +209,11 @@ export default function Home() {
 
   return (
     <Layout>
-      {/* Remove grid layout and document components */}
-      {/* <div className="grid grid-cols-1 md:grid-cols-2 gap-8"> */}
-        {/* <div className="space-y-6">
-          <DocumentUploader onUpload={handleDocumentUpload} />
-          {uploadError && <p className="text-red-500 text-sm mt-2">{uploadError}</p>}
-          <h2 className="text-xl font-semibold text-gray-700 mt-6 mb-4">Mis Documentos</h2>
-          <DocumentTable documents={documents} isLoading={isLoadingDocs} />
-        </div> */}
-
-        {/* Keep only the ChatInterface */}
+      <div className="space-y-8">
         <div>
-          {/* Optional: Remove or keep the title */}
-          {/* <h2 className="text-xl font-semibold text-gray-700 mb-4">Chat Asistente</h2> */}
           <ChatInterface />
         </div>
-      {/* </div> */}
+      </div>
     </Layout>
   );
 } 

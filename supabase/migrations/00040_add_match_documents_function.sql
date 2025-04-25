@@ -1,33 +1,34 @@
--- Función para realizar búsquedas semánticas en documentos
+-- Función para realizar búsquedas semánticas en documentos legales
 -- Esta función usa la extensión pgvector para encontrar similitudes entre embeddings
 create or replace function match_documents(
   query_embedding vector(1536),
   match_threshold float,
-  match_count int,
-  p_user_id uuid
+  match_count int
 )
 returns table (
   id uuid,
-  file_name text,
-  document_type text,
+  title text,
   content text,
+  type text,
+  reference text,
+  source text,
   similarity float
 )
 language sql stable
 as $$
   select
     d.id,
-    d.file_name,
-    d.document_type,
-    e.content,
-    1 - (e.embedding <-> query_embedding) as similarity
+    d.title,
+    d.content,
+    d.type,
+    d.reference,
+    d.source,
+    1 - (d.embedding <-> query_embedding) as similarity
   from
-    public.documents d
-    join public.document_embeddings e on d.id = e.document_id
+    public.legal_documents d
   where
-    d.user_id = p_user_id
-    and 1 - (e.embedding <-> query_embedding) > match_threshold
+    1 - (d.embedding <-> query_embedding) > match_threshold
   order by
-    e.embedding <-> query_embedding
+    d.embedding <-> query_embedding
   limit match_count;
 $$; 

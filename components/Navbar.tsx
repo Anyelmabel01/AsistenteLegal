@@ -1,6 +1,10 @@
+'use client';
 import Link from 'next/link';
+import { useAuth } from '../context/AuthContext';
 
 const Navbar = () => {
+  const { user } = useAuth();
+  
   return (
     <nav className="bg-gray-800 p-4 text-white">
       <div className="container mx-auto flex justify-between items-center">
@@ -8,10 +12,16 @@ const Navbar = () => {
           Asistente Legal
         </Link>
         <div className="space-x-4">
-          <Link href="/documentos" className="hover:text-gray-300">
-            Documentos Legales
-          </Link>
-          {/* Agrega más enlaces aquí si es necesario */}
+          {user && (
+            <>
+              <Link href="/dashboard" className="hover:text-gray-300">
+                Panel de Control
+              </Link>
+              <Link href="/documentos" className="hover:text-gray-300">
+                Documentos Legales
+              </Link>
+            </>
+          )}
         </div>
       </div>
     </nav>

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { useAuth } from '../context/AuthContext'; // Assuming AuthContext is in context/
+import { useAuth } from '../context/AuthContext'; // Updated path to match Login
 
 export default function Register() {
   const [email, setEmail] = useState('');

@@ -1,4 +1,4 @@
-import { AuthProvider } from '../src/contexts/AuthContext';
+import { AuthProvider } from '../context/AuthContext';
 import '../styles/globals.css'; // Assuming globals.css is in a styles directory
 import React from 'react'; // Añadir import de React para tipado de children
 // import Navbar from '../components/Navbar'; // Remove the import
@@ -15,9 +15,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body>
         <AuthProvider>
           {/* <Navbar /> Remove the Navbar component */}
-          <main className="container mx-auto px-4 py-8">
+          <div className="container mx-auto px-4 py-8">
             {children}
-          </main>
+          </div>
         </AuthProvider>
       </body>
     </html>

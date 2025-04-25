@@ -1,48 +1,106 @@
 import { createClient } from '@supabase/supabase-js';
 
-// Obtener URL y clave anónima desde variables de entorno
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
+// Read Supabase URL and Anon Key from environment variables
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-// Verificar que las variables están definidas
-if (!supabaseUrl || !supabaseAnonKey) {
-  console.error(
-    'Error: Las variables de entorno NEXT_PUBLIC_SUPABASE_URL y NEXT_PUBLIC_SUPABASE_ANON_KEY deben estar definidas.'
-  );
+// Function to create supabase client to avoid initialization issues
+const createSupabaseClient = () => {
+  // Basic validation to ensure environment variables are set
+  if (!supabaseUrl || !supabaseAnonKey) {
+    if (!supabaseUrl) {
+      console.error('Error: Missing environment variable NEXT_PUBLIC_SUPABASE_URL');
+    }
+    if (!supabaseAnonKey) {
+      console.error('Error: Missing environment variable NEXT_PUBLIC_SUPABASE_ANON_KEY');
+    }
+    
+    // Return null if variables are missing
+    if (typeof window !== 'undefined') {
+      console.error('Supabase client could not be initialized due to missing environment variables.');
+    }
+    return null;
+  }
+
+  // Create the client if all variables are present
+  try {
+    const client = createClient(supabaseUrl, supabaseAnonKey, {
+      auth: {
+        persistSession: true, // Store session in local storage
+        autoRefreshToken: true, // Automatically refresh token
+        detectSessionInUrl: true, // Look for auth token in URL
+        storageKey: 'supabase.auth.token', // Key to use in storage
+      }
+    });
+    
+    // Verify the client has been created properly
+    if (!client) {
+      throw new Error('Failed to initialize Supabase client');
+    }
+    
+    return client;
+  } catch (error) {
+    console.error('Error creating Supabase client:', error);
+    return null;
+  }
+};
+
+// Create and export the Supabase client instance
+export const supabase = createSupabaseClient();
+
+// Handle edge case where supabase is null
+if (!supabase) {
+  console.error('Supabase client is not initialized. Authentication will not work.');
 }
-
-// Crear cliente de Supabase
-export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
-  auth: {
-    persistSession: true,
-    autoRefreshToken: true,
-  },
-});
 
 // Utility function to get public URL for stored files
 export const getPublicUrl = (bucket: string, filePath: string): string => {
+  if (!supabase) {
+    console.error('Supabase client is not initialized. Cannot get public URL.');
+    return '';
+  }
   const { data } = supabase.storage.from(bucket).getPublicUrl(filePath);
   return data.publicUrl;
 };
 
 // Get info for the signed-in user
 export const getCurrentUser = async () => {
-  const { data: { user }, error } = await supabase.auth.getUser();
-  if (error) {
-    console.error('Error getting user:', error.message);
+  if (!supabase) {
+    console.error('Supabase client is not initialized. Cannot get current user.');
     return null;
   }
-  return user;
+  
+  try {
+    const { data: { user }, error } = await supabase.auth.getUser();
+    if (error) {
+      console.error('Error getting user:', error.message);
+      return null;
+    }
+    return user;
+  } catch (error) {
+    console.error('Exception when getting user:', error);
+    return null;
+  }
 };
 
 // Check if a session exists
 export const checkSession = async () => {
-  const { data: { session }, error } = await supabase.auth.getSession();
-  if (error) {
-    console.error('Error checking session:', error.message);
+  if (!supabase) {
+    console.error('Supabase client is not initialized. Cannot check session.');
     return null;
   }
-  return session;
+  
+  try {
+    const { data: { session }, error } = await supabase.auth.getSession();
+    if (error) {
+      console.error('Error checking session:', error.message);
+      return null;
+    }
+    return session;
+  } catch (error) {
+    console.error('Exception when checking session:', error);
+    return null;
+  }
 };
 
 export default supabase; 

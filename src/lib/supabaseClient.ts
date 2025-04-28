@@ -1,8 +1,11 @@
-import { createClient } from '@supabase/supabase-js';
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
 // Read Supabase URL and Anon Key from environment variables
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+// Declare the supabase client variable
+let supabase: SupabaseClient | null = null;
 
 // Function to create supabase client to avoid initialization issues
 const createSupabaseClient = () => {
@@ -45,12 +48,14 @@ const createSupabaseClient = () => {
   }
 };
 
-// Create and export the Supabase client instance
-export const supabase = createSupabaseClient();
-
-// Handle edge case where supabase is null
-if (!supabase) {
-  console.error('Supabase client is not initialized. Authentication will not work.');
+// Initialize Supabase client only on the client side
+if (typeof window !== 'undefined') {
+  supabase = createSupabaseClient();
+  
+  // Handle edge case where supabase is null
+  if (!supabase) {
+    console.error('Supabase client is not initialized. Authentication will not work.');
+  }
 }
 
 // Utility function to get public URL for stored files
@@ -103,4 +108,5 @@ export const checkSession = async () => {
   }
 };
 
+export { supabase };
 export default supabase; 

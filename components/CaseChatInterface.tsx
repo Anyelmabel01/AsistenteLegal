@@ -1,7 +1,8 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
-import { useAuth } from '../context/AuthContext';
+import { useParams } from 'next/navigation';
+import { useAuth } from '../src/contexts/auth';
 import { supabase } from '../src/lib/supabaseClient';
 // Temporarily mock the function instead of importing it
 // import { generateLegalAnalysis } from '../utils/openaiLegal';

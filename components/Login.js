@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
-import { useAuth } from '../context/AuthContext'; // Fixed import path
+import React, { useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { useAuth } from '../src/contexts/auth'; // Importando directamente de auth
 import LoginHelp from './LoginHelp';
 
 export default function Login({ onSwitch }) {

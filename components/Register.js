@@ -1,9 +1,10 @@
 'use client';
 
-import { useState } from 'react';
-import { useAuth } from '../context/AuthContext'; // Updated path to match Login
+import React, { useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { useAuth } from '../src/contexts/auth'; // Importando directamente de auth
 
-export default function Register() {
+export default function Register({ onSwitch }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState(null);
@@ -62,6 +63,15 @@ export default function Register() {
       >
         {loading ? 'Registering...' : 'Register'}
       </button>
+      <div className="text-center text-sm mt-4">
+        <p>Already have an account? <button 
+          type="button"
+          onClick={onSwitch}
+          className="text-indigo-600 hover:text-indigo-800 font-medium"
+        >
+          Login
+        </button></p>
+      </div>
     </form>
   );
 } 

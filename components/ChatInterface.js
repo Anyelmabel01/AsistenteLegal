@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import ChatMessage from './ChatMessage';
 import ChatInput from './ChatInput';
 import { supabase } from '../src/lib/supabaseClient';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../src/contexts/auth'; // Importando directamente de auth
 import { generateCompletion } from '../utils/openai'; // Assuming OpenAI utility exists
 
 const ChatInterface = () => {

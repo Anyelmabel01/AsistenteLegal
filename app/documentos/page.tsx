@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { useAuth } from '../../context/AuthContext'; // Adjust path as needed
+import { useAuth } from '../../src/contexts/auth'; // Adjusted path to use the correct implementation
 import { getUserDocuments } from '../../utils/documentService'; // Adjust path as needed
 import DocumentTable from '../../components/DocumentTable'; // Adjust path as needed
 import Layout from '../../src/components/Layout/MainLayout'; // Adjust path as needed

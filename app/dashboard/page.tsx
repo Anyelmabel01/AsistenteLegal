@@ -2,14 +2,14 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { useAuth } from '../../context/AuthContext';
+import { useAuth } from '../../src/contexts/auth';
 import Layout from '../../src/components/Layout/MainLayout';
 import UpdatesPanel from '../../components/UpdatesPanel';
 import SubscriptionManager from '../../components/SubscriptionManager';
 import NotificationCenter from '../../components/NotificationCenter';
 
 export default function Dashboard() {
-  const { user, loading, profile } = useAuth();
+  const { user, loading } = useAuth();
   const router = useRouter();
   const [activeTab, setActiveTab] = useState('updates');
 

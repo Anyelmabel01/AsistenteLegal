@@ -3,7 +3,7 @@
 import { useState, useCallback, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useDropzone } from 'react-dropzone';
-import { useAuth } from '../../../src/contexts/AuthContext';
+import { useAuth } from '../../../src/contexts/auth';
 import Layout from '../../../src/components/Layout/MainLayout';
 import { supabase } from '../../../src/lib/supabaseClient';
 import { Document, Page, pdfjs } from 'react-pdf';

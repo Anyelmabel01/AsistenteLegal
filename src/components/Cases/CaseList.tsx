@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabaseClient';
-import { useAuth } from '../../contexts/AuthContext';
+import { useAuth } from '../../contexts/auth';
 import { Link } from 'react-router-dom'; // Import Link
 import { PlusIcon, BriefcaseIcon } from '@heroicons/react/24/outline';
 

@@ -1,7 +1,7 @@
 'use client';
 import Link from 'next/link';
 import React from 'react';
-import { useAuth } from '../src/contexts/AuthContext';
+import { useAuth } from '../src/contexts/auth';
 
 const Navbar = () => {
   const { user } = useAuth();

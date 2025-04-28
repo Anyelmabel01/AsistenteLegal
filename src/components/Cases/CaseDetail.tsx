@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabaseClient';
-import { useAuth } from '../../contexts/AuthContext';
+import { useAuth } from '../../contexts/auth';
 import { DocumentIcon, ArrowLeftIcon, ExclamationTriangleIcon, CheckCircleIcon, XMarkIcon, PlusCircleIcon, CircleStackIcon } from '@heroicons/react/24/outline';
 
 // Interfaces matching DB structure (can be moved to a types file later)

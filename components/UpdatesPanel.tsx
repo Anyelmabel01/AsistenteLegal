@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { supabase } from '../src/lib/supabaseClient';
-import { useAuth } from '../src/contexts/AuthContext';
+import { useAuth } from '../src/contexts/auth';
 
 type LegalUpdate = {
   id: string;

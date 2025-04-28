@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { supabase } from '../../lib/supabaseClient';
-import { useAuth } from '../../contexts/AuthContext';
+import { useAuth } from '../../contexts/auth';
 import { ArrowUpTrayIcon } from '@heroicons/react/24/outline';
 import Tesseract, { RecognizeResult } from 'tesseract.js'; // Import Tesseract directly
 import { useDropzone } from 'react-dropzone'; // Import useDropzone

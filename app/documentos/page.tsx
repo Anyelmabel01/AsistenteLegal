@@ -4,7 +4,6 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../src/contexts/auth'; // Adjusted path to use the correct implementation
 import { getUserDocuments } from '../../utils/documentService'; // Adjust path as needed
 import DocumentTable from '../../components/DocumentTable'; // Adjust path as needed
-import Layout from '../../src/components/Layout/MainLayout'; // Adjust path as needed
 
 // Define the Document type (consider moving to a shared types file)
 interface Document {
@@ -59,27 +58,21 @@ export default function DocumentosPage() {
 
   if (authLoading) {
     return (
-      <Layout>
-        <div className="text-center py-10">Cargando usuario...</div>
-      </Layout>
+      <div className="text-center py-10">Cargando usuario...</div>
     );
   }
 
   if (!user) {
      return (
-      <Layout>
-        <div className="text-center py-10 text-red-600">Por favor, inicia sesión para ver tus documentos.</div>
-      </Layout>
+      <div className="text-center py-10 text-red-600">Por favor, inicia sesión para ver tus documentos.</div>
     );
   }
 
   return (
-    <Layout>
-      <div className="space-y-6">
-        <h1 className="text-2xl font-semibold text-gray-800">Mis Documentos Legales</h1>
-        {error && <p className="text-red-500">{error}</p>}
-        <DocumentTable documents={documents} isLoading={isLoadingDocs} />
-      </div>
-    </Layout>
+    <div className="space-y-6">
+      <h1 className="text-2xl font-semibold text-gray-800">Mis Documentos Legales</h1>
+      {error && <p className="text-red-500">{error}</p>}
+      <DocumentTable documents={documents} isLoading={isLoadingDocs} />
+    </div>
   );
 } 

@@ -13,6 +13,9 @@ const Navbar = () => {
           Asistente Legal
         </Link>
         <div className="space-x-4">
+          <Link href="/sitios-oficiales" className="hover:text-gray-300">
+            Sitios Oficiales
+          </Link>
           {user && (
             <>
               <Link href="/dashboard" className="hover:text-gray-300">

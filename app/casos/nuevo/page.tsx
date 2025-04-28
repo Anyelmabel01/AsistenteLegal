@@ -4,7 +4,6 @@ import { useState, useCallback, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useDropzone } from 'react-dropzone';
 import { useAuth } from '../../../src/contexts/auth';
-import Layout from '../../../src/components/Layout/MainLayout';
 import { supabase } from '../../../src/lib/supabaseClient';
 import { Document, Page, pdfjs } from 'react-pdf';
 import { createWorker } from 'tesseract.js';
@@ -219,119 +218,139 @@ export default function NewCase() {
 
   if (authLoading) {
     return (
-      <Layout>
-        <div className="flex justify-center items-center min-h-screen">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
-        </div>
-      </Layout>
+      <div className="flex justify-center items-center min-h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
+      </div>
     );
   }
 
   return (
-    <Layout>
-      <div className="container mx-auto px-4 py-8">
-        <h1 className="text-2xl font-bold mb-6">Crear Nuevo Caso Legal</h1>
-        
-        <div className="bg-white rounded-lg shadow-md p-6">
-          <form onSubmit={handleSubmit}>
-            <div className="mb-6">
-              <label htmlFor="title" className="block text-sm font-medium text-gray-700 mb-1">
-                Título del caso *
-              </label>
-              <input
-                id="title"
-                type="text"
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="Ej: Contrato de arrendamiento"
-                required
-              />
-            </div>
+    <div className="container mx-auto px-4 py-8">
+      <h1 className="text-2xl font-bold mb-6">Crear Nuevo Caso Legal</h1>
+      
+      <div className="bg-white rounded-lg shadow-md p-6">
+        <form onSubmit={handleSubmit}>
+          <div className="mb-6">
+            <label htmlFor="title" className="block text-sm font-medium text-gray-700 mb-1">
+              Título del caso *
+            </label>
+            <input
+              id="title"
+              type="text"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="Ej: Contrato de arrendamiento"
+              required
+            />
+          </div>
+          
+          <div className="mb-6">
+            <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-1">
+              Descripción
+            </label>
+            <textarea
+              id="description"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[100px]"
+              placeholder="Describe los detalles del caso"
+            />
+          </div>
+          
+          <div className="mb-6">
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Documento del caso (PDF)
+            </label>
             
-            <div className="mb-6">
-              <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-1">
-                Descripción
-              </label>
-              <textarea
-                id="description"
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[100px]"
-                placeholder="Describe los detalles del caso"
-              />
-            </div>
-            
-            <div className="mb-6">
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Documento del caso (PDF)
-              </label>
+            <div
+              {...getRootProps()}
+              className={`border-2 border-dashed rounded-md p-6 text-center cursor-pointer transition ${
+                isDragActive 
+                  ? 'border-blue-500 bg-blue-50' 
+                  : 'border-gray-300 hover:border-blue-400'
+              }`}
+            >
+              <input {...getInputProps()} />
               
-              <div
-                {...getRootProps()}
-                className={`border-2 border-dashed rounded-md p-6 text-center cursor-pointer transition ${
-                  isDragActive 
-                    ? 'border-blue-500 bg-blue-50' 
-                    : 'border-gray-300 hover:border-blue-400'
-                }`}
-              >
-                <input {...getInputProps()} />
-                
-                {filePreview ? (
-                  <p className="text-gray-700">Archivo seleccionado: <span className="font-medium">{file?.name}</span></p>
-                ) : (
-                  <div>
-                    <p className="text-gray-700">Arrastra un archivo PDF aquí, o haz clic para seleccionar</p>
-                    <p className="text-gray-500 text-sm mt-1">Solo archivos PDF (máx. 10MB)</p>
-                  </div>
-                )}
-              </div>
-            </div>
-            
-            {filePreview && (
-              <div className="mb-6">
-                <div className="border rounded-md overflow-hidden mb-4">
-                  <Document
-                    file={filePreview}
-                    onLoadSuccess={onDocumentLoadSuccess}
-                    loading={<div className="p-4 text-center">Cargando documento...</div>}
-                    error={<div className="p-4 text-center text-red-500">Error al cargar el documento</div>}
-                  >
-                    <Page 
-                      pageNumber={pageNumber} 
-                      width={500} 
-                      renderTextLayer={false}
-                      renderAnnotationLayer={false}
-                    />
-                  </Document>
-                  <div className="flex justify-between items-center p-4 border-t">
-                    <button
-                      type="button"
-                      onClick={() => setPageNumber(page => Math.max(page - 1, 1))}
-                      disabled={pageNumber <= 1}
-                      className={`px-3 py-1 rounded ${pageNumber <= 1 ? 'bg-gray-200' : 'bg-blue-500 text-white'}`}
-                    >
-                      Anterior
-                    </button>
-                    <p className="text-sm">
-                      Página {pageNumber} de {numPages || '-'}
-                    </p>
-                    <button
-                      type="button"
-                      onClick={() => setPageNumber(page => Math.min(page + 1, numPages || 1))}
-                      disabled={numPages !== null && pageNumber >= numPages}
-                      className={`px-3 py-1 rounded ${numPages !== null && pageNumber >= numPages ? 'bg-gray-200' : 'bg-blue-500 text-white'}`}
-                    >
-                      Siguiente
-                    </button>
-                  </div>
+              {filePreview ? (
+                <p className="text-gray-700">Archivo seleccionado: <span className="font-medium">{file?.name}</span></p>
+              ) : (
+                <div>
+                  <p className="text-gray-700">Arrastra un archivo PDF aquí, o haz clic para seleccionar</p>
+                  <p className="text-gray-500 text-sm mt-1">Solo archivos PDF (máx. 10MB)</p>
                 </div>
-                
-                <div className="flex flex-col md:flex-row gap-4">
+              )}
+            </div>
+          </div>
+          
+          {filePreview && (
+            <div className="mb-6">
+              <div className="border rounded-md overflow-hidden mb-4">
+                <Document
+                  file={filePreview}
+                  onLoadSuccess={onDocumentLoadSuccess}
+                  loading={<div className="p-4 text-center">Cargando documento...</div>}
+                  error={<div className="p-4 text-center text-red-500">Error al cargar el documento</div>}
+                >
+                  <Page 
+                    pageNumber={pageNumber} 
+                    width={500} 
+                    renderTextLayer={false}
+                    renderAnnotationLayer={false}
+                  />
+                </Document>
+                <div className="flex justify-between items-center p-4 border-t">
                   <button
                     type="button"
-                    onClick={processDocument}
-                    disabled={isProcessing}
-                    className={`flex-1 px-4 py-2 rounded-md ${
-                      isProcessing ? 'bg-gray-400 cursor-not-allowed' : 'bg-green-600 hover:bg-green-700 text-white'
-                    }`
+                    onClick={() => setPageNumber(page => Math.max(page - 1, 1))}
+                    disabled={pageNumber <= 1}
+                    className={`px-3 py-1 rounded ${pageNumber <= 1 ? 'bg-gray-200' : 'bg-blue-500 text-white'}`}
+                  >
+                    Anterior
+                  </button>
+                  <p className="text-sm">
+                    Página {pageNumber} de {numPages || '-'}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => setPageNumber(page => Math.min(page + 1, numPages || 1))}
+                    disabled={numPages !== null && pageNumber >= numPages}
+                    className={`px-3 py-1 rounded ${numPages !== null && pageNumber >= numPages ? 'bg-gray-200' : 'bg-blue-500 text-white'}`}
+                  >
+                    Siguiente
+                  </button>
+                </div>
+              </div>
+              
+              <div className="flex flex-col md:flex-row gap-4">
+                <button
+                  type="button"
+                  onClick={processDocument}
+                  disabled={isProcessing}
+                  className={`flex-1 px-4 py-2 rounded-md ${
+                    isProcessing ? 'bg-gray-400 cursor-not-allowed' : 'bg-green-600 hover:bg-green-700 text-white'
+                  }`
+                >
+                  Procesar Documento
+                </button>
+              </div>
+            </div>
+          )}
+          
+          <div className="mt-6">
+            <button
+              type="submit"
+              disabled={isProcessing}
+              className={`px-4 py-2 rounded-md ${
+                isProcessing ? 'bg-gray-400 cursor-not-allowed' : 'bg-blue-500 text-white'
+              }`}
+            >
+              Crear Caso
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}

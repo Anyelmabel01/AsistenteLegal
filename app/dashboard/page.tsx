@@ -4,8 +4,9 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '../../src/contexts/auth';
 import UpdatesPanel from '../../components/UpdatesPanel';
-import SubscriptionManager from '../../components/SubscriptionManager';
 import NotificationCenter from '../../components/NotificationCenter';
+import DocumentUploader from '../../components/DocumentUploader';
+import DocumentList from '../../components/DocumentList';
 
 export default function Dashboard() {
   const { user, loading } = useAuth();
@@ -45,14 +46,14 @@ export default function Dashboard() {
             Actualizaciones Legales
           </button>
           <button
-            onClick={() => setActiveTab('subscriptions')}
+            onClick={() => setActiveTab('documents')}
             className={`py-4 px-6 font-medium text-sm border-b-2 mr-8 ${
-              activeTab === 'subscriptions' 
+              activeTab === 'documents' 
                 ? 'border-blue-500 text-blue-600'
                 : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
             }`}
           >
-            Gestión de Suscripciones
+            Documentos
           </button>
           <button
             onClick={() => setActiveTab('notifications')}
@@ -77,11 +78,20 @@ export default function Dashboard() {
           </div>
         )}
         
-        {activeTab === 'subscriptions' && (
+        {activeTab === 'documents' && (
           <div>
-            <h2 className="text-xl font-semibold mb-4">Gestión de Suscripciones</h2>
-            <p className="text-gray-600 mb-4">Administra tus suscripciones a fuentes legales y recibe notificaciones cuando haya actualizaciones.</p>
-            <SubscriptionManager />
+            <h2 className="text-xl font-semibold mb-4">Gestión de Documentos</h2>
+            <p className="text-gray-600 mb-4">Sube y gestiona tus documentos legales para su análisis y procesamiento.</p>
+            
+            <div className="mb-8">
+              <h3 className="text-lg font-medium mb-3">Subir Nuevo Documento</h3>
+              <DocumentUploader />
+            </div>
+            
+            <div>
+              <h3 className="text-lg font-medium mb-3">Mis Documentos</h3>
+              <DocumentList />
+            </div>
           </div>
         )}
         

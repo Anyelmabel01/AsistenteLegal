@@ -19,14 +19,21 @@ export default function UpdatesPanel() {
   const [updates, setUpdates] = useState<LegalUpdate[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('all');
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     fetchUpdates();
-  }, []);
+  }, [filter]);
 
   const fetchUpdates = async () => {
     try {
       setLoading(true);
+      setError(null);
+      
+      if (!supabase) {
+        throw new Error('Cliente Supabase no inicializado. Verifica las variables de entorno.');
+      }
+      
       let query = supabase
         .from('legal_updates')
         .select('*')
@@ -37,28 +44,27 @@ export default function UpdatesPanel() {
         query = query.eq('source', filter);
       }
 
-      const { data, error } = await query;
+      const { data, error: supabaseError } = await query;
 
-      if (error) {
-        console.error('Error fetching updates:', error);
+      if (supabaseError) {
+        console.error('Error fetching updates:', supabaseError);
+        setError(`Error al obtener actualizaciones: ${supabaseError.message || 'Error desconocido'}`);
         return;
       }
 
       setUpdates(data || []);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error:', error);
+      setError(`Error: ${error?.message || 'Error desconocido'}`);
     } finally {
       setLoading(false);
     }
   };
 
-  // Filtra las actualizaciones por fuente
   const handleFilterChange = (newFilter: string) => {
     setFilter(newFilter);
-    fetchUpdates();
   };
 
-  // Formatea la fecha para mostrarla en un formato más amigable
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
     return date.toLocaleString('es-PA', {
@@ -78,9 +84,23 @@ export default function UpdatesPanel() {
     );
   }
 
+  if (error) {
+    return (
+      <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded relative" role="alert">
+        <strong className="font-bold">Error: </strong>
+        <span className="block sm:inline">{error}</span>
+        <button 
+          className="mt-2 bg-red-600 hover:bg-red-700 text-white font-bold py-1 px-2 rounded text-xs"
+          onClick={() => fetchUpdates()}
+        >
+          Reintentar
+        </button>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
-      {/* Filtros */}
       <div className="flex flex-wrap gap-2 mb-4">
         <button
           onClick={() => handleFilterChange('all')}
@@ -114,7 +134,6 @@ export default function UpdatesPanel() {
         </button>
       </div>
 
-      {/* Lista de actualizaciones */}
       {updates.length === 0 ? (
         <div className="text-center py-10 text-gray-500">
           No hay actualizaciones disponibles

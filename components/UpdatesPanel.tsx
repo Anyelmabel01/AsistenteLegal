@@ -20,42 +20,89 @@ export default function UpdatesPanel() {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('all');
   const [error, setError] = useState<string | null>(null);
+  const { user } = useAuth();
 
+  // Verificar conexión al cargar y cuando cambia el filtro
   useEffect(() => {
-    fetchUpdates();
+    const checkConnectionAndFetch = async () => {
+      // Primero verificamos si podemos conectarnos
+      if (await checkSupabaseConnection()) {
+        fetchUpdates();
+      }
+    };
+    
+    checkConnectionAndFetch();
   }, [filter]);
 
-  const fetchUpdates = async () => {
+  // Función para verificar si podemos conectarnos a Supabase
+  const checkSupabaseConnection = async (): Promise<boolean> => {
     try {
       setLoading(true);
       setError(null);
       
       if (!supabase) {
-        throw new Error('Cliente Supabase no inicializado. Verifica las variables de entorno.');
+        setError('Cliente Supabase no inicializado. Verifica las variables de entorno.');
+        return false;
       }
       
-      let query = supabase
+      // Intentamos una operación simple para verificar conectividad
+      const { error: pingError } = await supabase.from('legal_updates').select('count', { count: 'exact', head: true });
+      
+      if (pingError) {
+        console.error('Error de conexión a Supabase:', pingError);
+        setError(`Error de conexión a la base de datos: ${pingError.message || 'No se pudo conectar al servidor'}`);
+        return false;
+      }
+      
+      return true;
+    } catch (err: any) {
+      console.error('Error de conectividad:', err);
+      setError(`Error de conexión: ${err?.message || 'Error desconocido al conectar a la base de datos'}`);
+      return false;
+    } finally {
+      if (loading) setLoading(false);
+    }
+  };
+
+  const fetchUpdates = async () => {
+    if (!supabase) {
+      setError('Cliente Supabase no disponible');
+      setLoading(false);
+      return;
+    }
+    
+    try {
+      setLoading(true);
+      
+      // Usamos una variable explícita para el query builder
+      const queryBuilder = supabase
         .from('legal_updates')
         .select('*')
         .order('published_at', { ascending: false })
         .limit(20);
 
-      if (filter !== 'all') {
-        query = query.eq('source', filter);
-      }
+      // Aplicamos filtro si no es "all"
+      const finalQuery = filter !== 'all' 
+        ? queryBuilder.eq('source', filter)
+        : queryBuilder;
 
-      const { data, error: supabaseError } = await query;
+      // Ejecutamos la consulta final
+      const { data, error: fetchError } = await finalQuery;
 
-      if (supabaseError) {
-        console.error('Error fetching updates:', supabaseError);
-        setError(`Error al obtener actualizaciones: ${supabaseError.message || 'Error desconocido'}`);
+      // Manejamos errores específicamente
+      if (fetchError) {
+        console.error('Error al obtener actualizaciones:', fetchError);
+        setError(`No se pudieron cargar las actualizaciones: ${fetchError.message}`);
         return;
       }
 
+      // Si todo sale bien, actualizamos el estado
       setUpdates(data || []);
-    } catch (error: any) {
-      console.error('Error:', error);
-      setError(`Error: ${error?.message || 'Error desconocido'}`);
+      setError(null);
+    } catch (err: any) {
+      // Capturamos cualquier error no manejado
+      console.error('Error inesperado:', err);
+      setError(`Error inesperado: ${err?.message || 'Error desconocido'}`);
     } finally {
       setLoading(false);
     }
@@ -89,12 +136,27 @@ export default function UpdatesPanel() {
       <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded relative" role="alert">
         <strong className="font-bold">Error: </strong>
         <span className="block sm:inline">{error}</span>
-        <button 
-          className="mt-2 bg-red-600 hover:bg-red-700 text-white font-bold py-1 px-2 rounded text-xs"
-          onClick={() => fetchUpdates()}
-        >
-          Reintentar
-        </button>
+        <div className="mt-3 flex space-x-2">
+          <button 
+            className="bg-red-600 hover:bg-red-700 text-white font-bold py-1 px-2 rounded text-xs"
+            onClick={async () => {
+              await checkSupabaseConnection();
+            }}
+          >
+            Verificar conexión
+          </button>
+          <button 
+            className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-1 px-2 rounded text-xs"
+            onClick={() => fetchUpdates()}
+          >
+            Reintentar carga
+          </button>
+        </div>
+        {!user && (
+          <div className="mt-2 text-sm">
+            <p>No has iniciado sesión. Algunas funciones pueden no estar disponibles.</p>
+          </div>
+        )}
       </div>
     );
   }

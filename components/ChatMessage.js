@@ -1,7 +1,41 @@
-import React from 'react';
+import React, { useState } from 'react';
+import { LinkOutlined, DownOutlined, UpOutlined } from '@ant-design/icons';
 
-const ChatMessage = ({ message }) => {
+const ChatMessage = ({ message, showSources = false }) => {
   const isAssistant = message.role === 'assistant';
+  const [showAllSources, setShowAllSources] = useState(false);
+  
+  // Procesar enlaces en el contenido del mensaje
+  const renderMessageContent = (content) => {
+    if (!content) return '';
+    
+    // Expresión regular para detectar URLs
+    const urlRegex = /(https?:\/\/[^\s]+)/g;
+    
+    // Separar contenido por URLs y renderizar enlaces
+    const parts = content.split(urlRegex);
+    const matches = content.match(urlRegex) || [];
+    
+    return parts.map((part, index) => {
+      // Si esta parte coincide con una URL, renderizarla como enlace
+      if (matches.includes(part)) {
+        return (
+          <a 
+            key={index}
+            href={part} 
+            target="_blank" 
+            rel="noopener noreferrer"
+            className={`underline ${isAssistant ? 'text-primary-600' : 'text-primary-200'}`}
+          >
+            {part} <LinkOutlined className="text-xs" />
+          </a>
+        );
+      }
+      
+      // Renderizar texto normal
+      return part;
+    });
+  };
 
   return (
     <div 
@@ -22,10 +56,56 @@ const ChatMessage = ({ message }) => {
             : 'bg-primary-600 text-white rounded-tr-none'
         }`}
       >
-        <p className="text-sm whitespace-pre-wrap">{message.content}</p>
+        <p className="text-sm whitespace-pre-wrap">{renderMessageContent(message.content)}</p>
         
-        <div className={`text-xs mt-1 ${isAssistant ? 'text-secondary-400' : 'text-primary-200'}`}>
-          {new Date(message.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+        {/* Mostrar fuentes de información si existen */}
+        {showSources && message.sources && message.sources.length > 0 && (
+          <div className="mt-3 pt-2 border-t border-gray-200">
+            <button 
+              onClick={() => setShowAllSources(!showAllSources)}
+              className="flex items-center text-xs font-medium text-primary-600 hover:text-primary-700 mb-2"
+            >
+              {showAllSources ? (
+                <>Ocultar fuentes <UpOutlined className="ml-1" /></>
+              ) : (
+                <>Mostrar fuentes ({message.sources.length}) <DownOutlined className="ml-1" /></>
+              )}
+            </button>
+            
+            {showAllSources && (
+              <div className="text-xs space-y-2 bg-primary-50 p-2 rounded-md">
+                {message.sources.map((source, index) => (
+                  <div key={index} className="flex flex-col">
+                    <a 
+                      href={source.url} 
+                      target="_blank" 
+                      rel="noopener noreferrer" 
+                      className="text-primary-600 hover:text-primary-800 font-medium flex items-center"
+                    >
+                      [{index + 1}] {source.title || 'Enlace'} <LinkOutlined className="ml-1" />
+                    </a>
+                    {source.snippet && (
+                      <p className="text-gray-600 mt-1">{source.snippet.substring(0, 120)}...</p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+        
+        {/* Metadatos */}
+        <div className="flex items-center justify-between text-xs mt-2">
+          <div className={`${isAssistant ? 'text-secondary-400' : 'text-primary-200'}`}>
+            {new Date(message.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+          </div>
+          
+          {/* Mostrar modelo usado si está disponible */}
+          {isAssistant && message.model && (
+            <div className="text-secondary-400 bg-secondary-50 px-1.5 py-0.5 rounded-full">
+              {message.model}
+            </div>
+          )}
         </div>
       </div>
       

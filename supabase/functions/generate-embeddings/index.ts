@@ -18,18 +18,23 @@ import OpenAI from 'https://deno.land/x/openai@v4.52.7/mod.ts';
 // IMPORTANT: Set these environment variables in your Supabase project's function settings
 const supabaseUrl = Deno.env.get("SUPABASE_URL");
 const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY");
-const openaiApiKey = Deno.env.get("OPENAI_API_KEY");
+// const openaiApiKey = Deno.env.get("OPENAI_API_KEY"); // <-- Comentado/Eliminado
+const perplexityApiKey = Deno.env.get("PERPLEXITY_API_KEY"); // <-- Añadido
 
 // Check if necessary environment variables are set
-if (!supabaseUrl || !supabaseAnonKey || !openaiApiKey) {
+if (!supabaseUrl || !supabaseAnonKey || !perplexityApiKey) { // <-- Usar perplexityApiKey
   console.error(
-    "Missing environment variables: SUPABASE_URL, SUPABASE_ANON_KEY, or OPENAI_API_KEY"
+    "Missing environment variables: SUPABASE_URL, SUPABASE_ANON_KEY, or PERPLEXITY_API_KEY" // <-- Mensaje actualizado
   );
   // Optionally, throw an error or return a specific response during deployment/startup
 }
 
 const supabase = createClient(supabaseUrl!, supabaseAnonKey!);
-const openai = new OpenAI({ apiKey: openaiApiKey });
+// const openai = new OpenAI({ apiKey: openaiApiKey }); // <-- Comentado/Eliminado
+const perplexityClient = new OpenAI({ // <-- Nueva instancia para Perplexity
+  apiKey: perplexityApiKey, 
+  baseURL: "https://api.perplexity.ai" // <-- Añadir URL base de Perplexity
+});
 
 // Configure PDF.js worker source (required for esm.sh usage)
 // Use a CDN link compatible with Deno/Edge Runtime
@@ -109,20 +114,21 @@ function chunkText(text: string, maxChunkSize: number = 1000): string[] {
 async function generateEmbeddings(textChunks: string[]): Promise<Array<{ chunk: string; embedding: number[] }>> {
   console.log(`Generating embeddings for ${textChunks.length} chunks...`);
   const embeddings = [];
-  const embeddingModel = "text-embedding-ada-002"; // Or your preferred model
+  const embeddingModel = "text-embedding-3-small"; // <-- Modelo de Perplexity
 
   for (const chunk of textChunks) {
       try {
-          const response = await openai.embeddings.create({
+          const response = await perplexityClient.embeddings.create({ // <-- Usar perplexityClient
               model: embeddingModel,
               input: chunk,
+              encoding_format: "float" // <-- Añadir formato float
           });
-          if (response.data && response.data.length > 0) {
+          if (response.data && response.data.length > 0 && response.data[0].embedding) { // <-- Verificar embedding
               embeddings.push({ chunk: chunk, embedding: response.data[0].embedding });
           } else {
                console.warn(`No embedding generated for chunk: "${chunk.substring(0, 50)}..."`);
           }
-      } catch (error) {
+      } catch (error: any) { // <-- Añadir tipo any
           console.error(`Error generating embedding for chunk: "${chunk.substring(0,50)}..."`, error);
           // Decide how to handle errors: skip chunk, retry, or fail the function?
           // For now, we skip the chunk with an error
@@ -203,34 +209,33 @@ serve(async (req: Request) => {
     // 5. Chunk the text
     const textChunks = chunkText(text); // Uses default chunk size
 
-    // 6. Generate embeddings for chunks
+    // 6. Generate Embeddings
     const embeddingsData = await generateEmbeddings(textChunks);
-
     if (embeddingsData.length === 0) {
-         console.warn("No embeddings were generated (possibly due to errors or empty chunks).");
-         // Decide how to proceed
-          return new Response(
+        console.warn("No embeddings could be generated for the extracted text.");
+        // Return success but note the issue
+        return new Response(
             JSON.stringify({ message: "Processed, but no embeddings generated.", gacetaUrl }),
             { status: 200, headers: { "Content-Type": "application/json" } }
         );
     }
 
-    // 7. Store embeddings in the database
+    // 7. Store Embeddings in Database
     await storeEmbeddings(gacetaUrl, embeddingsData);
 
     // 8. Return success response
-    console.log(`Successfully processed and generated embeddings for ${gacetaUrl}`);
+    console.log(`Successfully processed Gaceta: ${gacetaUrl}`);
     return new Response(
-      JSON.stringify({ message: "Embeddings generated and stored successfully.", gacetaUrl, chunks_processed: embeddingsData.length }),
+      JSON.stringify({ message: "Gaceta processed and embeddings stored successfully.", gacetaUrl }),
       { status: 200, headers: { "Content-Type": "application/json" } }
     );
 
-  } catch (error) {
+  } catch (error: any) { // <-- Añadir tipo any
     console.error("Error processing request:", error);
-    return new Response(
-      JSON.stringify({ error: "Internal Server Error", details: error.message }),
-      { status: 500, headers: { "Content-Type": "application/json" } }
-    );
+    return new Response(JSON.stringify({ error: error.message }), {
+      status: 500,
+      headers: { "Content-Type": "application/json" },
+    });
   }
 });
 

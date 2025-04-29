@@ -3,7 +3,11 @@ import ChatMessage from './ChatMessage';
 import ChatInput from './ChatInput';
 import { supabase } from '../src/lib/supabaseClient';
 import { useAuth } from '../src/contexts/auth'; // Importando directamente de auth
-import { generateCompletion } from '../utils/openai'; // Assuming OpenAI utility exists
+import { generateCompletion } from '../utils/perplexity'; // Cambiado a perplexity
+import { SendOutlined, InfoCircleOutlined, RobotOutlined, UserOutlined } from '@ant-design/icons';
+import { Input } from 'antd';
+
+const { TextArea } = Input;
 
 const ChatInterface = () => {
   const { user } = useAuth();

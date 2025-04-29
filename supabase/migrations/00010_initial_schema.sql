@@ -60,10 +60,11 @@ create policy "Users can manage their own documents" on public.documents
 -- 3. Document Embeddings Table
 -- Stores vector embeddings for document chunks.
 create table public.document_embeddings (
-  id bigserial primary key,
-  document_id uuid references public.documents on delete cascade not null,
-  content text, -- The text chunk that was embedded
-  embedding vector(1536) -- Assuming OpenAI 'text-embedding-ada-002' model (1536 dimensions)
+  id uuid primary key default gen_random_uuid(),
+  document_id uuid references public.documents(id) on delete cascade,
+  content text not null,
+  embedding vector(1024), -- Assuming Perplexity 'text-embedding-3-small' model (1024 dimensions)
+  created_at timestamp with time zone default now()
 );
 
 alter table public.document_embeddings enable row level security;

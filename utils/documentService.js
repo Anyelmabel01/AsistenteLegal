@@ -1,5 +1,5 @@
 import { supabase } from '../src/lib/supabaseClient';
-import { generateEmbedding } from './openai';
+import { generateEmbedding } from './perplexity';
 
 /**
  * Sube un documento al storage de Supabase y registra su metadata en la base de datos

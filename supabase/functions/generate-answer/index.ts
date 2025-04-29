@@ -10,10 +10,14 @@ import OpenAI from 'https://deno.land/x/openai@v4.52.7/mod.ts';
 
 console.log("Generate Answer Function Initialized");
 
-// Initialize OpenAI client
-const openai = new OpenAI({
-  // @ts-ignore
-  apiKey: Deno.env.get('OPENAI_API_KEY'),
+// Configuración de Supabase
+const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
+const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY') || '';
+
+// Initialize Perplexity client
+const perplexityClient = new OpenAI({
+  baseURL: 'https://api.perplexity.ai',
+  apiKey: Deno.env.get('PERPLEXITY_API_KEY'),
 });
 
 // Define the structure for the context items (matching SearchResult from frontend)
@@ -39,14 +43,14 @@ serve(async (req: Request) => {
     // @ts-ignore
     supabaseClient = createClient(
       // @ts-ignore
-      Deno.env.get('SUPABASE_URL') ?? '',
+      supabaseUrl,
       // @ts-ignore
-      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+      supabaseAnonKey,
       { global: { headers: { Authorization: authHeader } } }
     );
-  } catch (error) {
-     console.error('Error creating Supabase client:', error);
-     // Depending on use case, we might continue without a client if only OpenAI is needed
+  } catch (err: any) {
+     console.error('Error initializing Supabase client:', err);
+     // Depending on use case, we might continue without a client if only Perplexity is needed
      // return new Response(JSON.stringify({ error: 'Failed to initialize Supabase client' }), { status: 500, headers: { 'Content-Type': 'application/json' } });
   }
 
@@ -66,47 +70,42 @@ serve(async (req: Request) => {
     // Combine the user's query with the retrieved context
     const contextText = context.map((item: ContextItem) => `- ${item.content.replace(/\n/g, ' ')}`).join('\n');
 
-    const systemPrompt = `Eres un asistente legal experto en la legislación panameña. Responde la pregunta del usuario basándote ÚNICAMENTE en el contexto proporcionado. Si la respuesta no se encuentra en el contexto, indica que no tienes información suficiente en los documentos proporcionados para responder. No inventes información. Sé conciso y directo. Contexto:`;
-
-    const messages = [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: `Contexto:
+    const systemPrompt = `Eres un asistente legal experto en la legislación panameña. Responde la pregunta del usuario basándote ÚNICAMENTE en el contexto proporcionado. Si la respuesta no se encuentra en el contexto, indica que no tienes información suficiente en los documentos proporcionados para responder. No inventes información. Sé conciso y directo. Contexto:
 ${contextText}
 
-Pregunta: ${query}` }
-    ];
+Pregunta: ${query}`;
 
-    console.log("Sending request to OpenAI Chat Completions...");
+    console.log("Sending request to Perplexity Chat Completions...");
 
-    // 2. Call OpenAI API (Chat Completions)
-    let generatedAnswer = '';
+    // 2. Call Perplexity API (Chat Completions)
     try {
-      const response = await openai.chat.completions.create({
-        model: 'gpt-3.5-turbo', // Or use 'gpt-4' if available/preferred
-        messages: messages,
-        temperature: 0.2, // Lower temperature for more factual answers
-        max_tokens: 500, // Adjust as needed
+      const response = await perplexityClient.chat.completions.create({
+        model: 'sonar-pro',
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: query }
+        ],
+        temperature: 0.7,
       });
 
-      if (!response.choices || response.choices.length === 0 || !response.choices[0].message?.content) {
-        throw new Error('OpenAI API did not return a valid response.');
+      if (!response.choices || !response.choices[0] || !response.choices[0].message) {
+        throw new Error('Perplexity API did not return a valid response.');
       }
-      generatedAnswer = response.choices[0].message.content.trim();
-      console.log("Received answer from OpenAI.");
 
-    } catch (llmError) {
-        console.error('Error calling OpenAI Chat Completions:', llmError);
-        throw new Error(`Failed to generate answer using LLM: ${llmError.message}`);
+      console.log("Received answer from Perplexity.");
+      return new Response(JSON.stringify({ response: response.choices[0].message.content }), { 
+        headers: { 'Content-Type': 'application/json' }
+      });
+    } catch (llmError: any) {
+      console.error('Error calling Perplexity Chat Completions:', llmError);
+      return new Response(JSON.stringify({ error: 'Error al generar respuesta', details: llmError.message }), { 
+        status: 500, 
+        headers: { 'Content-Type': 'application/json' }
+      });
     }
-
-    // 3. Return the generated answer
-    return new Response(JSON.stringify({ answer: generatedAnswer }), {
-      status: 200, headers: { 'Content-Type': 'application/json' },
-    });
-
-  } catch (error) {
-    console.error('Function error:', error);
-    return new Response(JSON.stringify({ error: error.message }), {
+  } catch (error: any) {
+    console.error('Unexpected error:', error);
+    return new Response(JSON.stringify({ error: 'Error interno del servidor', details: error.message }), {
       status: 500, headers: { 'Content-Type': 'application/json' },
     });
   }

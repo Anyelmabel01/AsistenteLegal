@@ -1,6 +1,6 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { supabase } from '../supabaseClient';
-import { generateEmbedding } from '../openai';
+import { generateEmbedding } from '../perplexity';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'POST') {
@@ -19,6 +19,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     
     if (!embedding) {
       return res.status(500).json({ error: 'No se pudo generar el embedding para la consulta' });
+    }
+
+    if (!supabase) {
+      return res.status(500).json({ error: 'Supabase client not initialized' });
     }
     
     // Realizar búsqueda semántica usando la función match_documents de Supabase

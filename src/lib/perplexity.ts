@@ -1,8 +1,9 @@
 import { OpenAI } from 'openai';
 
-// Inicializar el cliente de OpenAI con la clave API
-const openai = new OpenAI({
-  apiKey: process.env.NEXT_PUBLIC_OPENAI_API_KEY || '',
+// Inicializar el cliente de Perplexity con la clave API
+const perplexity = new OpenAI({
+  apiKey: process.env.NEXT_PUBLIC_PERPLEXITY_API_KEY || '',
+  baseURL: 'https://api.perplexity.ai',
   dangerouslyAllowBrowser: true, // Para uso en cliente, en producción considera usar solo en servidor
 });
 
@@ -11,7 +12,7 @@ export async function generateEmbedding(text: string): Promise<number[] | null> 
   if (!text) return null;
 
   try {
-    const response = await openai.embeddings.create({
+    const response = await perplexity.embeddings.create({
       model: 'text-embedding-3-small',
       input: text,
       encoding_format: 'float',
@@ -21,11 +22,15 @@ export async function generateEmbedding(text: string): Promise<number[] | null> 
     return response.data[0].embedding;
   } catch (error) {
     console.error('Error al generar embedding:', error);
+    if (error.response) {
+      console.error("Response status:", error.response.status);
+      console.error("Response data:", error.response.data);
+    }
     return null;
   }
 }
 
-// Función para generar texto usando GPT
+// Función para generar texto usando Perplexity
 export async function generateCompletion(
   prompt: string,
   options: {
@@ -44,8 +49,15 @@ export async function generateCompletion(
       { role: 'user', content: prompt },
     ];
 
-    const completion = await openai.chat.completions.create({
-      model: 'gpt-4',
+    console.log('Sending request to Perplexity API with config:', {
+      model: 'sonar-pro',
+      messages: messages,
+      max_tokens: maxTokens,
+      temperature: temperature
+    });
+
+    const completion = await perplexity.chat.completions.create({
+      model: 'sonar-pro',
       messages: messages as any, // Type cast to avoid TypeScript issues
       max_tokens: maxTokens,
       temperature: temperature,
@@ -54,11 +66,15 @@ export async function generateCompletion(
     return completion.choices[0].message.content;
   } catch (error) {
     console.error('Error al generar texto:', error);
+    if (error.response) {
+      console.error("Response status:", error.response.status);
+      console.error("Response data:", error.response.data);
+    }
     return null;
   }
 }
 
-// Función para analizar un documento legal
+// Función para analizar un documento legal con Perplexity
 export async function analyzeDocument(
   documentText: string,
   documentType: string
@@ -110,4 +126,4 @@ export async function analyzeDocument(
   }
 }
 
-export default openai; 
+export default perplexity; 

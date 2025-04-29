@@ -94,7 +94,7 @@ vercel
 Establece las siguientes variables en el panel de Vercel:
 - `NEXT_PUBLIC_SUPABASE_URL`
 - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
-- `NEXT_PUBLIC_OPENAI_API_KEY`
+- `NEXT_PUBLIC_PERPLEXITY_API_KEY`
 - Otras variables específicas de producción
 
 ### 4.4 Despliegue a Producción
@@ -182,3 +182,54 @@ Programa actualizaciones regulares para:
 Para asistencia con el despliegue, contacta al equipo de desarrollo en:
 - Email: soporte@asistentelegal.com
 - GitHub: Abrir un issue en el repositorio del proyecto 
+
+### Variables de Entorno
+
+Asegúrate de crear un archivo `.env.local` en la raíz del proyecto con las siguientes variables:
+
+```
+# Clave API de Perplexity AI (requerido)
+NEXT_PUBLIC_PERPLEXITY_API_KEY=tu_clave_de_perplexity_aqui
+
+# URL y Clave Anónima de Supabase (obtenidas de tu proyecto Supabase)
+NEXT_PUBLIC_SUPABASE_URL=tu_supabase_url
+NEXT_PUBLIC_SUPABASE_ANON_KEY=tu_supabase_anon_key
+
+# (Opcional) Clave de Servicio de Supabase (si se requiere para ciertas operaciones seguras)
+# SUPABASE_SERVICE_KEY=tu_supabase_service_key
+```
+
+**Nota:** No incluyas `.env.local` en tu control de versiones (ya está en `.gitignore`).
+
+### Despliegue en Vercel (o similar)
+
+1.  **Conectar Repositorio:** Conecta tu repositorio Git (GitHub, GitLab, Bitbucket) a Vercel.
+2.  **Configurar Proyecto:**
+    *   Framework Preset: `Next.js`
+    *   Build Command: `npm run build` (o `yarn build`)
+    *   Output Directory: `.next`
+    *   Install Command: `npm install` (o `yarn install`)
+3.  **Variables de Entorno:** Añade las mismas variables de entorno (`NEXT_PUBLIC_PERPLEXITY_API_KEY`, `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, y `SUPABASE_SERVICE_KEY` si la usas) en la configuración del proyecto en Vercel.
+4.  **Desplegar.**
+
+### Despliegue de Funciones Supabase
+
+Si has modificado o creado funciones Edge de Supabase (en `supabase/functions`), necesitas desplegarlas:
+
+1.  **Instalar Supabase CLI:** Si no la tienes, sigue las instrucciones [aquí](https://supabase.com/docs/guides/cli).
+2.  **Iniciar Sesión:** `supabase login`
+3.  **Vincular Proyecto:** `supabase link --project-ref TU_ID_DE_PROYECTO` (reemplaza `TU_ID_DE_PROYECTO` con el ID de tu proyecto Supabase).
+4.  **Desplegar Funciones:** `supabase functions deploy --project-ref TU_ID_DE_PROYECTO`
+
+**Importante para Funciones:**
+*   Asegúrate de que las variables de entorno requeridas por las funciones (como `PERPLEXITY_API_KEY`, `SUPABASE_URL`, `SUPABASE_ANON_KEY`) estén configuradas en el dashboard de Supabase (Database -> Functions -> tu-funcion -> Secrets).
+
+## Próximos Pasos y Mejoras
+
+*   **Mejorar Extracción de Texto PDF:** Explorar librerías más robustas o servicios externos si `pdfjs-dist` no es suficiente.
+*   **Optimizar Búsqueda Semántica:** Ajustar el `match_threshold` y `match_count` en la función `match_documents`.
+*   **Interfaz de Usuario:** Añadir paginación, filtros avanzados, visualización de documentos.
+*   **Manejo de Errores:** Implementar un manejo de errores más detallado y feedback al usuario.
+*   **Seguridad:** Revisar y fortalecer las políticas RLS de Supabase.
+*   **Pruebas:** Añadir pruebas unitarias y de integración.
+*   **Costos:** Monitorizar el uso de la API de Perplexity y Supabase. 

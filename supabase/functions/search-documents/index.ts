@@ -10,10 +10,12 @@ import OpenAI from 'https://deno.land/x/openai@v4.52.7/mod.ts';
 
 console.log("Search Documents Function Initialized");
 
-// Initialize OpenAI client
-const openai = new OpenAI({
+// Initialize Perplexity client (using OpenAI library)
+const perplexityClient = new OpenAI({
   // @ts-ignore
-  apiKey: Deno.env.get('OPENAI_API_KEY'),
+  apiKey: Deno.env.get('PERPLEXITY_API_KEY'),
+  // @ts-ignore
+  baseURL: 'https://api.perplexity.ai'
 });
 
 // --- Constants --- (Adjust as needed)
@@ -56,16 +58,17 @@ serve(async (req: Request) => {
     console.log('Generating embedding for query...');
     let queryEmbedding: number[];
     try {
-      const response = await openai.embeddings.create({
-        model: 'text-embedding-ada-002',
+      const response = await perplexityClient.embeddings.create({
+        model: 'text-embedding-3-small',
         input: query.replace(/\n/g, ' '),
+        encoding_format: 'float'
       });
       if (!response.data || response.data.length === 0 || !response.data[0].embedding) {
-          throw new Error('OpenAI API did not return a valid embedding.');
+          throw new Error('Perplexity API did not return a valid embedding.');
       }
       queryEmbedding = response.data[0].embedding;
       console.log(`Generated query embedding (length: ${queryEmbedding.length})`);
-    } catch (embeddingError) {
+    } catch (embeddingError: any) {
         console.error('Error generating query embedding:', embeddingError);
         throw new Error(`Failed to generate embedding for query: ${embeddingError.message}`);
     }
@@ -90,7 +93,7 @@ serve(async (req: Request) => {
       status: 200, headers: { 'Content-Type': 'application/json' },
     });
 
-  } catch (error) {
+  } catch (error: any) {
     console.error('Function error:', error);
     return new Response(JSON.stringify({ error: error.message }), {
       status: 500, headers: { 'Content-Type': 'application/json' },

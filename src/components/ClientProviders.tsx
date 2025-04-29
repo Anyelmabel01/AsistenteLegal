@@ -2,9 +2,16 @@
 
 import React, { useEffect, useState } from 'react';
 import { AuthProvider } from '../contexts/auth';
+import { setupAntdWarningFilter } from '../lib/antd-config';
 
 export default function ClientProviders({ children }: { children: React.ReactNode }) {
   const [error, setError] = useState<Error | null>(null);
+
+  // Configurar filtro de advertencias
+  useEffect(() => {
+    // Deshabilitar advertencias de compatibilidad de antd
+    setupAntdWarningFilter();
+  }, []);
 
   // Capturar errores
   useEffect(() => {

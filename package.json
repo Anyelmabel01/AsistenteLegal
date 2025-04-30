@@ -3,11 +3,13 @@
   "version": "0.1.0",
   "private": true,
   "dependencies": {
+    "@ai-sdk/perplexity": "^1.1.8",
     "@ant-design/icons": "^5.4.0",
     "@headlessui/react": "^2.2.2",
     "@heroicons/react": "^2.2.0",
     "@supabase/supabase-js": "^2.49.4",
     "@types/tesseract.js": "^0.0.2",
+    "ai": "^4.3.12",
     "antd": "^5.19.3",
     "asistente-legal-panama": "file:",
     "critters": "^0.0.23",

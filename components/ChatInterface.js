@@ -110,7 +110,10 @@ const ChatInterface = () => {
               upsert: false
             });
             
-          if (error) throw error;
+          if (error) {
+            console.error('Error subiendo archivo:', error);
+            throw new Error(`Error subiendo archivo ${name}: ${error.message || JSON.stringify(error)}`);
+          }
           
           // Obtener URL pública
           const { data: publicUrlData } = supabase.storage
@@ -122,7 +125,19 @@ const ChatInterface = () => {
           // Si es un documento, procesar contenido para análisis
           let content = null;
           if (type === 'document') {
-            content = await processDocument(file);
+            // content = await processDocument(file); // <-- Funcion inexistente eliminada
+            // TODO: Implementar extracción de texto del lado del cliente o backend
+            content = `[Contenido del documento ${name} no extraído directamente]`;
+            // Eliminar el bloque try-catch que ya no es necesario aquí
+            /*
+            try {
+              content = await processDocument(file);
+            } catch (docError) {
+              console.warn(`No se pudo procesar el contenido del documento ${name}:`, docError);
+              // Continuar sin el contenido del documento
+              content = 'No se pudo extraer contenido del documento';
+            }
+            */
           }
           
           return {
@@ -140,7 +155,10 @@ const ChatInterface = () => {
       
     } catch (error) {
       console.error('Error procesando adjuntos:', error);
-      throw new Error(`Error procesando archivos adjuntos: ${error.message}`);
+      // Mejorar el mensaje de error para incluir detalles específicos
+      const errorMessage = error.message || 
+                          (typeof error === 'object' ? JSON.stringify(error) : 'Error desconocido');
+      throw new Error(`Error procesando archivos adjuntos: ${errorMessage}`);
     }
   };
 
@@ -184,7 +202,9 @@ const ChatInterface = () => {
           } else if (att.type === 'audio') {
             return `[Nota de voz]`;
           } else if (att.type === 'document') {
-            return `[Documento adjunto: ${att.name}]\nContenido del documento:\n${att.content || 'No se pudo extraer contenido'}`;
+            // Ya no insertamos el 'content' directamente aquí, ya que no lo extrajimos realmente.
+            // El placeholder asignado arriba se guardará en la BD en `userMessage.attachments`
+            return `[Documento adjunto: ${att.name}]`;
           }
           return `[Archivo adjunto: ${att.name}]`;
         });

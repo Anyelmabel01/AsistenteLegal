@@ -94,7 +94,9 @@ vercel
 Establece las siguientes variables en el panel de Vercel:
 - `NEXT_PUBLIC_SUPABASE_URL`
 - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
-- `NEXT_PUBLIC_PERPLEXITY_API_KEY`
+- `PERPLEXITY_API_KEY` (**Importante:** Esta es una clave secreta, asegúrate de que Vercel la maneje como tal y **NO** la exponga al cliente).
+- `PERPLEXITY_API_BASE_URL` (si la definiste, probablemente `https://api.perplexity.ai`)
+- `SUPABASE_SERVICE_KEY` (si la usas, también es secreta).
 - Otras variables específicas de producción
 
 ### 4.4 Despliegue a Producción
@@ -188,14 +190,16 @@ Para asistencia con el despliegue, contacta al equipo de desarrollo en:
 Asegúrate de crear un archivo `.env.local` en la raíz del proyecto con las siguientes variables:
 
 ```
-# Clave API de Perplexity AI (requerido)
-NEXT_PUBLIC_PERPLEXITY_API_KEY=tu_clave_de_perplexity_aqui
+# Clave API de Perplexity AI (requerido - ¡SECRETO! Solo para servidor)
+PERPLEXITY_API_KEY=tu_clave_de_perplexity_aqui
+# URL Base de la API de Perplexity (requerido - Solo para servidor)
+PERPLEXITY_API_BASE_URL=https://api.perplexity.ai
 
-# URL y Clave Anónima de Supabase (obtenidas de tu proyecto Supabase)
+# URL y Clave Anónima de Supabase (obtenidas de tu proyecto Supabase - Públicas)
 NEXT_PUBLIC_SUPABASE_URL=tu_supabase_url
 NEXT_PUBLIC_SUPABASE_ANON_KEY=tu_supabase_anon_key
 
-# (Opcional) Clave de Servicio de Supabase (si se requiere para ciertas operaciones seguras)
+# (Opcional) Clave de Servicio de Supabase (¡SECRETO! Solo para servidor, si se usa)
 # SUPABASE_SERVICE_KEY=tu_supabase_service_key
 ```
 
@@ -209,7 +213,7 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=tu_supabase_anon_key
     *   Build Command: `npm run build` (o `yarn build`)
     *   Output Directory: `.next`
     *   Install Command: `npm install` (o `yarn install`)
-3.  **Variables de Entorno:** Añade las mismas variables de entorno (`NEXT_PUBLIC_PERPLEXITY_API_KEY`, `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, y `SUPABASE_SERVICE_KEY` si la usas) en la configuración del proyecto en Vercel.
+3.  **Variables de Entorno:** Añade las variables de entorno (`PERPLEXITY_API_KEY`, `PERPLEXITY_API_BASE_URL`, `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, y `SUPABASE_SERVICE_KEY` si la usas) en la configuración del proyecto en Vercel. **Asegúrate de que las claves secretas (PERPLEXITY_API_KEY, SUPABASE_SERVICE_KEY) NO estén disponibles en el navegador.** Vercel generalmente maneja esto automáticamente si no usas el prefijo `NEXT_PUBLIC_`.
 4.  **Desplegar.**
 
 ### Despliegue de Funciones Supabase

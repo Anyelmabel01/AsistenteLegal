@@ -2,9 +2,11 @@
  * Cliente básico para la API de Perplexity AI usando fetch
  */
 
-// Constantes de configuración
-const API_KEY = process.env.NEXT_PUBLIC_PERPLEXITY_API_KEY || '';
-const API_BASE_URL = 'https://api.perplexity.ai';
+// utils/perplexity.js
+// import { streamText } from 'ai';
+// import { perplexity } from '../src/lib/perplexity'; // Ajusta la ruta según tu estructura
+const API_KEY = process.env.PERPLEXITY_API_KEY || ''; // Clave API (solo servidor)
+const API_BASE_URL = process.env.PERPLEXITY_API_BASE_URL || 'https://api.perplexity.ai';
 
 /**
  * Genera una respuesta usando el modelo de Perplexity
@@ -104,7 +106,7 @@ export async function generateCompletion(messages, options = {}) {
 }
 
 /**
- * Genera una respuesta usando búsqueda web en tiempo real
+ * Genera una respuesta usando búsqueda web en tiempo real a través del backend proxy
  * @param {string} query - La consulta del usuario
  * @param {Object} options - Opciones adicionales como modelo, systemPrompt, etc.
  * @returns {Promise<{content: string, sources: Array}>} Respuesta y fuentes
@@ -112,58 +114,47 @@ export async function generateCompletion(messages, options = {}) {
 export async function generateWebSearchCompletion(query, options = {}) {
   try {
     const { 
-      model = 'sonar-pro', 
-      systemPrompt = 'Eres un asistente legal especializado. Proporciona respuestas precisas basadas en información actualizada.',
-      maxTokens = 2000,
-      temperature = 0.7
+      model = 'sonar-medium-online', // Podemos seguir pasando el modelo deseado al backend
+      systemPrompt = 'Eres un asistente legal especializado. Proporciona respuestas precisas basadas en información actualizada.'
+      // Ya no necesitamos maxTokens o temperature aquí, se manejan en el backend si es necesario
     } = options;
     
-    // API para búsqueda web con Perplexity
-    const response = await fetch(`${API_BASE_URL}/search`, {
+    // Llamar a nuestra ruta API de backend
+    const response = await fetch('/api/perplexity-search', { // <- Cambio de URL
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${API_KEY}`,
+        // 'Authorization': `Bearer ${API_KEY}`, // <- Eliminado: La autorización la hace el backend
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
         query: query,
-        focus: 'law', // Enfoque en información legal
-        model: model,
-        system_prompt: systemPrompt,
-        max_tokens: maxTokens,
-        temperature: temperature,
-        include_citation_sources: true
+        model: model, // Enviar modelo deseado al backend
+        systemPrompt: systemPrompt // Enviar prompt del sistema al backend
+        // Ya no enviamos otros parámetros como focus, max_tokens, etc.
+        // El backend se encargará de pasarlos a Perplexity si es necesario.
       })
     });
     
     if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.error?.message || `Error en la API de búsqueda: ${response.status}`);
+      // Intentar obtener un mensaje de error más específico del backend
+      const errorData = await response.json().catch(() => ({ error: 'Error desconocido del servidor proxy.' }));
+      throw new Error(errorData.error || `Error ${response.status} desde el servidor proxy.`);
     }
     
+    // El backend ya debería devolver la estructura { content: string, sources: Array }
     const data = await response.json();
     
-    // Procesar fuentes para formato más usable
-    const sources = data.citations || [];
-    const formattedSources = sources.map(source => ({
-      title: source.title || 'Fuente sin título',
-      url: source.url || '',
-      snippet: source.snippet || '',
-      search_date: new Date().toISOString()
-    }));
-    
-    // Si no hay respuesta válida
-    if (!data.answer || typeof data.answer !== 'string') {
-      throw new Error('La API de Perplexity no devolvió una respuesta válida');
+    // Validar la respuesta del backend
+    if (!data || typeof data.content !== 'string' || !Array.isArray(data.sources)) {
+       console.error('Respuesta inesperada del backend proxy:', data);
+       throw new Error('Respuesta inválida recibida del servidor.');
     }
     
-    return {
-      content: data.answer,
-      sources: formattedSources
-    };
+    return data; // Devolver directamente la respuesta del backend
+
   } catch (error) {
-    console.error('Error en búsqueda web con Perplexity:', error);
-    // Si falla la búsqueda, intentar con el método estándar sin web
+    console.error('Error en generateWebSearchCompletion (llamada a proxy):', error);
+    // Mantener el fallback si la llamada al proxy falla
     try {
       const fallbackContent = await generateCompletion([
         { role: 'system', content: 'Eres un asistente legal, responde con la información que tienes disponible. Indica cuando no estés seguro de algo.' },
@@ -175,6 +166,7 @@ export async function generateWebSearchCompletion(query, options = {}) {
         sources: []
       };
     } catch (fallbackError) {
+      console.error('Error en fallback de generateWebSearchCompletion:', fallbackError);
       throw new Error('No se pudo generar una respuesta. Por favor, intenta de nuevo.');
     }
   }

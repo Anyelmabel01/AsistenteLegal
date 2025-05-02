@@ -12,8 +12,8 @@ const { TextArea } = Input;
 
 const AVAILABLE_MODELS = [
   { label: 'Sonar Pro', value: 'sonar-pro' },
+  { label: 'Sonar', value: 'sonar' }, 
   { label: 'Sonar Small', value: 'sonar-small-online' }, 
-  { label: 'Sonar Medium', value: 'sonar-medium-online' },
   { label: 'Llama 3-70B', value: 'llama-3-70b-instruct' },
   { label: 'Mixtral 8x7B', value: 'mixtral-8x7b-instruct' },
 ];
@@ -249,55 +249,53 @@ const ChatInterface = () => {
         .map(msg => ({ role: msg.role, content: msg.content }));
       
       // Añadir el mensaje del usuario con contenido procesado
-      historyForAI.push({ role: 'user', content: enhancedUserContent });
+      historyForAI.push({ role: 'user', content: userMessage.content });
 
-      // 2. Obtener respuesta del asistente usando el historial aumentado
-      let assistantResponseContent;
-      let sources = [];
-      
-      // Usar búsqueda web o conversación normal según el modo
-      if (searchMode) {
-        const result = await generateWebSearchCompletion(enhancedUserContent, {
-          model: selectedModel, 
-          systemPrompt: 'Eres un asistente legal especializado en derecho panameño. Proporciona respuestas precisas basadas en la información disponible y cita las fuentes relevantes.'
-        });
-        assistantResponseContent = result.content;
-        sources = result.sources || [];
-      } else {
-        assistantResponseContent = await generateCompletion(historyForAI, {
+      // --- DEBUG LOG ---
+      console.log('Llamando a API:', { searchMode, model: selectedModel, query: enhancedUserContent }); // Log para web search
+      console.log('Historial para API (si no search):', historyForAI); // Log para modo conversacional
+      // --- FIN DEBUG LOG ---
+
+      try {
+        // Llamar a la API correcta según el modo
+        const assistantResponse = searchMode
+          ? await generateWebSearchCompletion(enhancedUserContent, { model: selectedModel })
+          : await generateCompletion(historyForAI, { model: selectedModel });
+
+        if (!assistantResponse) {
+          throw new Error('No se pudo obtener respuesta del asistente.');
+        }
+
+        const assistantMessageData = {
+          role: 'assistant',
+          content: assistantResponse.content,
+          user_id: user.id,
           model: selectedModel,
-          systemPrompt: 'Eres un asistente legal especializado en derecho panameño. Responde con precisión a las consultas legales basado en el contexto de la conversación.'
-        });
+          search_mode: searchMode,
+          sources: assistantResponse.sources || []
+        };
+
+        // 3. Guardar mensaje del asistente en Supabase
+        const { data: savedAssistantMessage, error: assistantInsertError } = await supabase
+          .from('chat_messages')
+          .insert(assistantMessageData)
+          .select()
+          .single();
+
+        if (assistantInsertError) {
+          console.error('Error saving assistant message:', assistantInsertError.message);
+          // Even if saving fails, show response to user
+          setMessages((prevMessages) => [...prevMessages, { ...assistantMessageData, id: `temp-assistant-${crypto.randomUUID()}` }]);
+        } else {
+          setMessages((prevMessages) => [...prevMessages, savedAssistantMessage]);
+        }
+
+      } catch (err) {
+        console.error('Error handling message:', err);
+        setError(`Error: ${err.message}. Intenta de nuevo.`);
+      } finally {
+        setIsLoading(false);
       }
-
-      if (!assistantResponseContent) {
-        throw new Error('No se pudo obtener respuesta del asistente.');
-      }
-
-      const assistantMessageData = {
-        role: 'assistant',
-        content: assistantResponseContent,
-        user_id: user.id,
-        model: selectedModel,
-        search_mode: searchMode,
-        sources: sources
-      };
-
-      // 3. Guardar mensaje del asistente en Supabase
-      const { data: savedAssistantMessage, error: assistantInsertError } = await supabase
-        .from('chat_messages')
-        .insert(assistantMessageData)
-        .select()
-        .single();
-
-      if (assistantInsertError) {
-        console.error('Error saving assistant message:', assistantInsertError.message);
-        // Even if saving fails, show response to user
-        setMessages((prevMessages) => [...prevMessages, { ...assistantMessageData, id: `temp-assistant-${crypto.randomUUID()}` }]);
-      } else {
-        setMessages((prevMessages) => [...prevMessages, savedAssistantMessage]);
-      }
-
     } catch (err) {
       console.error('Error handling message:', err);
       setError(`Error: ${err.message}. Intenta de nuevo.`);

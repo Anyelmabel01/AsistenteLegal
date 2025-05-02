@@ -114,7 +114,7 @@ export async function generateCompletion(messages, options = {}) {
 export async function generateWebSearchCompletion(query, options = {}) {
   try {
     const { 
-      model = 'sonar-medium-online', // Podemos seguir pasando el modelo deseado al backend
+      model = 'sonar',
       systemPrompt = 'Eres un asistente legal especializado. Proporciona respuestas precisas basadas en información actualizada.'
       // Ya no necesitamos maxTokens o temperature aquí, se manejan en el backend si es necesario
     } = options;

@@ -43,7 +43,7 @@ export async function POST(req: NextRequest) {
       messages: [
         {
           role: "system",
-          content: systemPrompt || 'Eres un asistente legal especializado. Proporciona respuestas precisas basadas en información actualizada.'
+          content: systemPrompt || 'Eres un asistente legal especializado. Proporciona respuestas precisas basadas en información actualizada. Explica tu razonamiento paso a paso, citando leyes y jurisprudencia relevante. Detalla el proceso lógico que seguiste para llegar a tus conclusiones y ofrece diferentes perspectivas cuando sea apropiado.'
         },
         {
           role: "user",

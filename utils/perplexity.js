@@ -115,7 +115,7 @@ export async function generateWebSearchCompletion(query, options = {}) {
   try {
     const { 
       model = 'sonar',
-      systemPrompt = 'Eres un asistente legal especializado. Proporciona respuestas precisas basadas en información actualizada.'
+      systemPrompt = 'Eres un asistente legal especializado. Proporciona respuestas precisas basadas en información actualizada. Explica tu razonamiento paso a paso, citando leyes y jurisprudencia relevante. Detalla el proceso lógico que seguiste para llegar a tus conclusiones y ofrece diferentes perspectivas cuando sea apropiado.'
       // Ya no necesitamos maxTokens o temperature aquí, se manejan en el backend si es necesario
     } = options;
     
@@ -157,8 +157,8 @@ export async function generateWebSearchCompletion(query, options = {}) {
     // Mantener el fallback si la llamada al proxy falla
     try {
       const fallbackContent = await generateCompletion([
-        { role: 'system', content: 'Eres un asistente legal, responde con la información que tienes disponible. Indica cuando no estés seguro de algo.' },
-        { role: 'user', content: `No pudimos realizar la búsqueda en tiempo real, pero intentaré responder: ${query}` }
+        { role: 'system', content: 'Eres un asistente legal especializado. Debes responder con la información que tienes disponible, explicando detalladamente tu razonamiento jurídico, citando leyes relevantes y construyendo argumentos paso a paso. Indica cuando no estés seguro de algo, pero siempre ofrece un análisis completo basado en principios legales generales.' },
+        { role: 'user', content: `No pudimos realizar la búsqueda en tiempo real, pero intentaré responder con un razonamiento jurídico detallado: ${query}` }
       ], { model: options.model || 'sonar-pro' });
       
       return {
@@ -190,19 +190,19 @@ export async function analyzeDocument(documentText, documentType) {
   
   switch (documentType) {
     case 'jurisprudencia':
-      systemPrompt = 'Eres un asistente legal especializado en analizar jurisprudencia. Proporciona un análisis completo que incluya: resumen del caso, hechos relevantes, fundamentos jurídicos, decisión y su relevancia o precedente.';
+      systemPrompt = 'Eres un asistente legal especializado en analizar jurisprudencia. Proporciona un análisis completo que incluya: resumen del caso, hechos relevantes, fundamentos jurídicos, decisión y su relevancia o precedente. Explica detalladamente tu razonamiento y cómo los distintos elementos legales se conectan entre sí. Presenta argumentos lógicos y cita la normativa relevante.';
       break;
     case 'ley':
-      systemPrompt = 'Eres un asistente legal especializado en analizar leyes y normativas. Proporciona un análisis completo que incluya: resumen de la normativa, ámbito de aplicación, disposiciones clave, obligaciones y derechos establecidos, y posibles implicaciones prácticas.';
+      systemPrompt = 'Eres un asistente legal especializado en analizar leyes y normativas. Proporciona un análisis completo que incluya: resumen de la normativa, ámbito de aplicación, disposiciones clave, obligaciones y derechos establecidos, y posibles implicaciones prácticas. Desarrolla un razonamiento jurídico paso a paso, explicando la intención del legislador y cómo se relaciona con el ordenamiento jurídico.';
       break;
     case 'contrato':
-      systemPrompt = 'Eres un asistente legal especializado en analizar contratos. Proporciona un análisis completo que incluya: tipo de contrato, partes involucradas, obligaciones principales, cláusulas relevantes, posibles riesgos o ambigüedades, y recomendaciones.';
+      systemPrompt = 'Eres un asistente legal especializado en analizar contratos. Proporciona un análisis completo que incluya: tipo de contrato, partes involucradas, obligaciones principales, cláusulas relevantes, posibles riesgos o ambigüedades, y recomendaciones. Detalla el razonamiento jurídico detrás de cada punto, explicando las implicaciones legales y cómo se relacionan con la normativa aplicable.';
       break;
     case 'demanda':
-      systemPrompt = 'Eres un asistente legal especializado en analizar demandas. Proporciona un análisis completo que incluya: partes involucradas, pretensiones, fundamentos de hecho y de derecho, posibles fortalezas y debilidades, y estrategias de defensa o respuesta.';
+      systemPrompt = 'Eres un asistente legal especializado en analizar demandas. Proporciona un análisis completo que incluya: partes involucradas, pretensiones, fundamentos de hecho y de derecho, posibles fortalezas y debilidades, y estrategias de defensa o respuesta. Desarrolla un razonamiento jurídico detallado que explique la viabilidad de la demanda y cite jurisprudencia relacionada.';
       break;
     default:
-      systemPrompt = 'Eres un asistente legal especializado. Proporciona un análisis completo del documento legal presentado.';
+      systemPrompt = 'Eres un asistente legal especializado. Proporciona un análisis completo del documento legal presentado con un razonamiento jurídico detallado, citando leyes y jurisprudencia relevante. Explica las implicaciones legales y ofrece diferentes perspectivas cuando sea apropiado.';
   }
 
   const messages = [

@@ -27,6 +27,7 @@ const ChatInterface = () => {
   const messagesEndRef = useRef(null);
   const [selectedModel, setSelectedModel] = useState('sonar-pro');
   const [searchMode, setSearchMode] = useState(true); // true = búsqueda web, false = solo conversación
+  const [researchMode, setResearchMode] = useState(false); // true = investigación profunda
   
   // Function to scroll to the bottom of messages
   const scrollToBottom = () => {
@@ -258,9 +259,23 @@ const ChatInterface = () => {
 
       try {
         // Llamar a la API correcta según el modo
-        const assistantResponse = searchMode
-          ? await generateWebSearchCompletion(enhancedUserContent, { model: selectedModel })
-          : await generateCompletion(historyForAI, { model: selectedModel });
+        let assistantResponse;
+        
+        if (searchMode) {
+          // Para el modo de investigación, usamos sonar-pro con un prompt específico
+          if (researchMode) {
+            assistantResponse = await generateWebSearchCompletion(enhancedUserContent, { 
+              model: 'sonar-pro',
+              systemPrompt: 'Eres un asistente legal especializado en realizar investigaciones profundas. Tu objetivo es proporcionar análisis exhaustivos con fuentes bibliográficas, leyes, jurisprudencia y doctrina. Debes explorar múltiples perspectivas sobre cada tema, citar correctamente tus fuentes con números entre corchetes, y presentar un razonamiento detallado paso a paso. No te limites a respuestas superficiales. Investiga a fondo, evalúa críticamente las fuentes y elabora conclusiones fundamentadas.'
+            });
+          } else {
+            // Modo búsqueda normal
+            assistantResponse = await generateWebSearchCompletion(enhancedUserContent, { model: selectedModel });
+          }
+        } else {
+          // Modo conversación normal
+          assistantResponse = await generateCompletion(historyForAI, { model: selectedModel });
+        }
 
         if (!assistantResponse) {
           throw new Error('No se pudo obtener respuesta del asistente.');
@@ -272,6 +287,7 @@ const ChatInterface = () => {
           user_id: user.id,
           model: selectedModel,
           search_mode: searchMode,
+          research_mode: researchMode,
           sources: assistantResponse.sources || []
         };
 
@@ -365,13 +381,31 @@ const ChatInterface = () => {
             <Tooltip title={searchMode ? "Búsqueda web activa" : "Modo conversación"}>
               <Switch
                 checked={searchMode}
-                onChange={setSearchMode}
+                onChange={(checked) => {
+                  setSearchMode(checked);
+                  if (!checked) setResearchMode(false); // Desactivar investigación si se desactiva búsqueda
+                }}
                 checkedChildren={<GlobalOutlined />}
                 unCheckedChildren={<MessageOutlined />}
                 disabled={isLoading}
               />
             </Tooltip>
           </div>
+          
+          {/* Switch para modo de investigación */}
+          {searchMode && (
+            <div className="flex items-center space-x-2">
+              <Tooltip title={researchMode ? "Investigación profunda activa" : "Búsqueda normal"}>
+                <Switch
+                  checked={researchMode}
+                  onChange={setResearchMode}
+                  checkedChildren={<SearchOutlined />}
+                  unCheckedChildren={<SearchOutlined style={{ opacity: 0.5 }} />}
+                  disabled={isLoading || !searchMode}
+                />
+              </Tooltip>
+            </div>
+          )}
           
           {/* Botón de limpiar conversación */}
           <Tooltip title="Limpiar conversación">

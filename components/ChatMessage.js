@@ -1,121 +1,123 @@
-import React, { useState } from 'react';
-import { LinkOutlined, DownOutlined, UpOutlined } from '@ant-design/icons';
+import React from 'react';
+import { Card, Avatar, Collapse, List, Typography } from 'antd';
+import { UserOutlined, RobotOutlined, LinkOutlined } from '@ant-design/icons';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+
+const { Panel } = Collapse;
+const { Text } = Typography;
 
 const ChatMessage = ({ message, showSources = false }) => {
-  const isAssistant = message.role === 'assistant';
-  const [showAllSources, setShowAllSources] = useState(false);
+  const isUser = message.role === 'user';
+  const hasAttachments = message.attachments && message.attachments.length > 0;
   
-  // Procesar enlaces en el contenido del mensaje
-  const renderMessageContent = (content) => {
-    if (!content) return '';
-    
-    // Expresión regular para detectar URLs
-    const urlRegex = /(https?:\/\/[^\s]+)/g;
-    
-    // Separar contenido por URLs y renderizar enlaces
-    const parts = content.split(urlRegex);
-    const matches = content.match(urlRegex) || [];
-    
-    return parts.map((part, index) => {
-      // Si esta parte coincide con una URL, renderizarla como enlace
-      if (matches.includes(part)) {
-        return (
-          <a 
-            key={index}
-            href={part} 
-            target="_blank" 
-            rel="noopener noreferrer"
-            className={`underline ${isAssistant ? 'text-primary-600' : 'text-primary-200'}`}
-          >
-            {part} <LinkOutlined className="text-xs" />
-          </a>
-        );
-      }
-      
-      // Renderizar texto normal
-      return part;
-    });
-  };
-
+  // Formatear datetime para mostrar
+  const formattedTime = message.created_at 
+    ? new Date(message.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    : '';
+  
+  const messageContent = message.content || '';
+  
+  // Verificar si el mensaje está en modo investigación
+  const isResearchMode = message.research_mode === true;
+  
   return (
-    <div 
-      className={`flex ${isAssistant ? 'justify-start' : 'justify-end'} mb-4 transform transition-all duration-300 hover:scale-[1.01]`}
-    >
-      {isAssistant && (
-        <div className="h-8 w-8 rounded-full bg-primary-600 flex items-center justify-center mr-2 shadow-soft">
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8h2a2 2 0 012 2v6a2 2 0 01-2 2h-2v4l-4-4H9a1.994 1.994 0 01-1.414-.586m0 0L11 14h4a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2v4l.586-.586z" />
-          </svg>
-        </div>
-      )}
-      
-      <div 
-        className={`p-3 rounded-2xl max-w-[80%] shadow-soft ${
-          isAssistant 
-            ? 'bg-white border border-primary-100 rounded-tl-none' 
-            : 'bg-primary-600 text-white rounded-tr-none'
-        }`}
-      >
-        <p className="text-sm whitespace-pre-wrap">{renderMessageContent(message.content)}</p>
-        
-        {/* Mostrar fuentes de información si existen */}
-        {showSources && message.sources && message.sources.length > 0 && (
-          <div className="mt-3 pt-2 border-t border-gray-200">
-            <button 
-              onClick={() => setShowAllSources(!showAllSources)}
-              className="flex items-center text-xs font-medium text-primary-600 hover:text-primary-700 mb-2"
-            >
-              {showAllSources ? (
-                <>Ocultar fuentes <UpOutlined className="ml-1" /></>
-              ) : (
-                <>Mostrar fuentes ({message.sources.length}) <DownOutlined className="ml-1" /></>
-              )}
-            </button>
-            
-            {showAllSources && (
-              <div className="text-xs space-y-2 bg-primary-50 p-2 rounded-md">
-                {message.sources.map((source, index) => (
-                  <div key={index} className="flex flex-col">
-                    <a 
-                      href={source.url} 
-                      target="_blank" 
-                      rel="noopener noreferrer" 
-                      className="text-primary-600 hover:text-primary-800 font-medium flex items-center"
-                    >
-                      [{index + 1}] {source.title || 'Enlace'} <LinkOutlined className="ml-1" />
-                    </a>
-                    {source.snippet && (
-                      <p className="text-gray-600 mt-1">{source.snippet.substring(0, 120)}...</p>
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-        
-        {/* Metadatos */}
-        <div className="flex items-center justify-between text-xs mt-2">
-          <div className={`${isAssistant ? 'text-secondary-400' : 'text-primary-200'}`}>
-            {new Date(message.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
-          </div>
-          
-          {/* Mostrar modelo usado si está disponible */}
-          {isAssistant && message.model && (
-            <div className="text-secondary-400 bg-secondary-50 px-1.5 py-0.5 rounded-full">
-              {message.model}
-            </div>
-          )}
-        </div>
+    <div className={`flex ${isUser ? 'justify-end' : 'justify-start'} mb-4`}>
+      <div className={`${isUser ? 'order-2' : 'order-1'}`}>
+        <Avatar
+          icon={isUser ? <UserOutlined /> : <RobotOutlined />}
+          className={isUser ? 'bg-primary-500' : 'bg-secondary-600'}
+        />
       </div>
       
-      {!isAssistant && (
-        <div className="h-8 w-8 rounded-full bg-secondary-700 flex items-center justify-center ml-2 shadow-soft">
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-          </svg>
-        </div>
-      )}
+      <div className={`px-2 ${isUser ? 'order-1 mr-2' : 'order-2 ml-2'} max-w-[85%]`}>
+        <Card 
+          size="small"
+          className={`${isUser 
+            ? 'bg-primary-50 border-primary-100' 
+            : 'bg-white border-secondary-100'
+          } shadow-sm rounded-lg`}
+          bodyStyle={{ padding: '12px 16px' }}
+        >
+          <div className="flex items-center mb-1">
+            <Text className="text-xs text-gray-500 mr-2">{formattedTime}</Text>
+            {!isUser && message.model && (
+              <Text className="text-xs bg-gray-100 px-1 rounded">{message.model}</Text>
+            )}
+            {!isUser && isResearchMode && (
+              <Text className="text-xs bg-blue-100 text-blue-800 px-1 rounded ml-1">Investigación</Text>
+            )}
+          </div>
+          
+          <div className="prose prose-sm max-w-none">
+            <ReactMarkdown 
+              remarkPlugins={[remarkGfm]}
+              className="markdown-body"
+            >
+              {messageContent}
+            </ReactMarkdown>
+          </div>
+          
+          {/* Mostrar fuentes si hay y showSources es true */}
+          {!isUser && showSources && message.sources && message.sources.length > 0 && (
+            <Collapse 
+              ghost
+              className="mt-2 border-t border-gray-100 pt-1"
+            >
+              <Panel header={
+                <span className="text-xs text-secondary-600 font-medium">
+                  Ver fuentes ({message.sources.length})
+                </span>
+              } key="1">
+                <List
+                  size="small"
+                  dataSource={message.sources}
+                  renderItem={(source, index) => {
+                    // Extraer URL y título según el formato
+                    const url = source.id || source.function?.arguments?.url || '#';
+                    const title = source.function?.name || `Fuente ${index + 1}`;
+                    
+                    return (
+                      <List.Item className="py-1 px-0">
+                        <a 
+                          href={url} 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          className="text-xs text-primary-600 hover:text-primary-800 hover:underline flex items-center"
+                        >
+                          <LinkOutlined className="mr-1" /> 
+                          <span>{`[${index + 1}] ${title}`}</span>
+                        </a>
+                      </List.Item>
+                    );
+                  }}
+                />
+              </Panel>
+            </Collapse>
+          )}
+          
+          {/* Mostrar adjuntos si hay */}
+          {hasAttachments && (
+            <div className="mt-2 border-t border-gray-100 pt-2">
+              <Text className="text-xs text-gray-500 block mb-1">
+                Adjuntos:
+              </Text>
+              {message.attachments.map((attachment, index) => (
+                <div key={index} className="text-xs">
+                  <a 
+                    href={attachment.url} 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="text-primary-600 hover:text-primary-800 hover:underline"
+                  >
+                    {attachment.name}
+                  </a>
+                </div>
+              ))}
+            </div>
+          )}
+        </Card>
+      </div>
     </div>
   );
 };

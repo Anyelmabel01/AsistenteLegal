@@ -40,7 +40,7 @@ const ChatMessage = ({ message, showSources = false }) => {
             ? 'bg-primary-50 border-primary-100' 
             : 'bg-white border-secondary-100'
           } shadow-sm rounded-lg`}
-          bodyStyle={{ padding: '12px 16px' }}
+          styles={{ body: { padding: '12px 16px' } }}
         >
           <div className="flex items-center mb-1">
             <Text className="text-xs text-gray-500 mr-2">{formattedTime}</Text>

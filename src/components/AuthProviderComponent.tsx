@@ -3,9 +3,10 @@
 import React, { useState, useEffect, ReactNode } from 'react';
 import ClientLayoutWrapper from './ClientLayoutWrapper';
 import { AuthProvider } from '../contexts/auth';
+import ClientPage from './ClientPage';
 
 interface AuthProviderComponentProps {
-  children: ReactNode;
+  children?: ReactNode;
 }
 
 export default function AuthProviderComponent({ children }: AuthProviderComponentProps) {
@@ -22,7 +23,7 @@ export default function AuthProviderComponent({ children }: AuthProviderComponen
   return (
     <AuthProvider>
       <ClientLayoutWrapper>
-        {children}
+        {children || <ClientPage />}
       </ClientLayoutWrapper>
     </AuthProvider>
   );

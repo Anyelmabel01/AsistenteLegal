@@ -54,12 +54,13 @@ const ChatMessage = ({ message, showSources = false }) => {
           
           <div className="prose prose-sm max-w-none">
             {typeof ReactMarkdown === 'function' ? (
-              <ReactMarkdown 
-                remarkPlugins={[remarkGfm]}
-                className="markdown-body"
-              >
-                {messageContent}
-              </ReactMarkdown>
+              <div className="markdown-body">
+                <ReactMarkdown 
+                  remarkPlugins={[remarkGfm]}
+                >
+                  {messageContent}
+                </ReactMarkdown>
+              </div>
             ) : (
               <div className="whitespace-pre-wrap">{messageContent}</div>
             )}

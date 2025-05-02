@@ -21,6 +21,9 @@ const ChatMessage = ({ message, showSources = false }) => {
   // Verificar si el mensaje está en modo investigación
   const isResearchMode = message.research_mode === true;
   
+  // Evaluar si hay fuentes para mostrar
+  const hasSources = showSources && message.sources && Array.isArray(message.sources) && message.sources.length > 0;
+  
   return (
     <div className={`flex ${isUser ? 'justify-end' : 'justify-start'} mb-4`}>
       <div className={`${isUser ? 'order-2' : 'order-1'}`}>
@@ -50,16 +53,20 @@ const ChatMessage = ({ message, showSources = false }) => {
           </div>
           
           <div className="prose prose-sm max-w-none">
-            <ReactMarkdown 
-              remarkPlugins={[remarkGfm]}
-              className="markdown-body"
-            >
-              {messageContent}
-            </ReactMarkdown>
+            {typeof ReactMarkdown === 'function' ? (
+              <ReactMarkdown 
+                remarkPlugins={[remarkGfm]}
+                className="markdown-body"
+              >
+                {messageContent}
+              </ReactMarkdown>
+            ) : (
+              <div className="whitespace-pre-wrap">{messageContent}</div>
+            )}
           </div>
           
           {/* Mostrar fuentes si hay y showSources es true */}
-          {!isUser && showSources && message.sources && message.sources.length > 0 && (
+          {!isUser && hasSources && (
             <Collapse 
               ghost
               className="mt-2 border-t border-gray-100 pt-1"
@@ -73,9 +80,16 @@ const ChatMessage = ({ message, showSources = false }) => {
                   size="small"
                   dataSource={message.sources}
                   renderItem={(source, index) => {
-                    // Extraer URL y título según el formato
-                    const url = source.id || source.function?.arguments?.url || '#';
-                    const title = source.function?.name || `Fuente ${index + 1}`;
+                    // Intentar extraer URL y título de cualquier estructura posible
+                    let url = '#';
+                    let title = `Fuente ${index + 1}`;
+                    
+                    if (typeof source === 'string') {
+                      url = source;
+                    } else if (source && typeof source === 'object') {
+                      url = source.id || source.url || (source.function?.arguments?.url) || '#';
+                      title = source.title || source.name || source.function?.name || `Fuente ${index + 1}`;
+                    }
                     
                     return (
                       <List.Item className="py-1 px-0">

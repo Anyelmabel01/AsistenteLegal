@@ -1,12 +1,17 @@
 'use client';
 
-import ClientPage from '../src/components/ClientPage';
-import { AuthProvider } from '../src/contexts/auth';
+import dynamic from 'next/dynamic';
 
-export default function Page() {
+// Carga dinámica del componente cliente para evitar errores de hidratación
+const AuthProviderComponent = dynamic(() => import('../src/components/AuthProviderComponent'), {
+  ssr: false,
+  loading: () => <div>Cargando...</div>
+});
+
+export default function Home() {
   return (
-    <AuthProvider>
-      <ClientPage />
-    </AuthProvider>
+    <AuthProviderComponent>
+      {/* El componente ClientPage se carga dentro de AuthProviderComponent */}
+    </AuthProviderComponent>
   );
 } 

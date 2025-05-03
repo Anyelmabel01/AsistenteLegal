@@ -52,11 +52,20 @@ const ChatMessage = ({ message, showSources = false }) => {
             )}
           </div>
           
-          <div className="prose prose-sm max-w-none">
+          <div className="prose prose-sm max-w-none markdown-body">
             {typeof ReactMarkdown === 'function' ? (
               <ReactMarkdown 
                 remarkPlugins={[remarkGfm]}
-                className="markdown-body"
+                components={{
+                  // Aquí puedes definir componentes personalizados si necesitas estilos específicos
+                  // Por ejemplo:
+                  p: ({node, ...props}) => <p className="my-2" {...props} />,
+                  a: ({node, ...props}) => <a className="text-primary-600 hover:underline" {...props} />,
+                  code: ({node, inline, ...props}) => 
+                    inline 
+                      ? <code className="bg-gray-100 px-1 py-0.5 rounded text-sm" {...props} />
+                      : <code className="block bg-gray-100 p-2 rounded text-sm" {...props} />
+                }}
               >
                 {messageContent}
               </ReactMarkdown>

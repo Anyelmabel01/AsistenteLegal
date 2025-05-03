@@ -1,14 +1,19 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
-// Read Supabase URL and Anon Key from environment variables
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
 // Declare the supabase client variable
 let supabase: SupabaseClient | null = null;
 
 // Function to create supabase client to avoid initialization issues
 const createSupabaseClient = () => {
+  // Move reading environment variables inside the function
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+  // --- DIAGNOSTIC LOG --- 
+  console.log("[supabaseClient] NEXT_PUBLIC_SUPABASE_URL:", supabaseUrl);
+  console.log("[supabaseClient] NEXT_PUBLIC_SUPABASE_ANON_KEY:", supabaseAnonKey);
+  // --- END DIAGNOSTIC LOG ---
+
   // Basic validation to ensure environment variables are set
   if (!supabaseUrl || !supabaseAnonKey) {
     if (!supabaseUrl) {

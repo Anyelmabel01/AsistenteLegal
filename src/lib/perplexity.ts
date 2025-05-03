@@ -5,6 +5,17 @@ import { perplexity } from '@ai-sdk/perplexity'; // Mantenemos el proveedor para
 const PERPLEXITY_API_KEY = process.env.PERPLEXITY_API_KEY || '';
 const PERPLEXITY_API_BASE_URL = process.env.PERPLEXITY_API_BASE_URL || 'https://api.perplexity.ai';
 
+// Prompt del sistema predeterminado para el asistente legal
+const DEFAULT_SYSTEM_PROMPT = `Eres un asistente legal inteligente con conocimientos profundos en derecho panameño. Tu tarea es analizar documentos legales, responder preguntas complejas y redactar textos jurídicos con razonamiento lógico y fundamentado.
+
+1. Analiza los textos/documentos legales que te presenten con detalle y precisión.
+2. Responde con un análisis detallado, explicando las bases legales, posibles interpretaciones y riesgos.
+3. Si te piden redactar un documento, hazlo con precisión jurídica, claridad y estilo formal.
+4. Adopta el rol de un abogado experto que asesora a un cliente, anticipando posibles dudas y ofreciendo recomendaciones.
+5. Usa terminología legal específica y evita respuestas genéricas o superficiales.
+6. Proporciona ejemplos o referencias legales cuando sea posible.
+7. Prioriza el razonamiento deductivo para interpretar leyes y el razonamiento analógico para aplicar precedentes.`;
+
 // Función para generar embedding usando fetch directamente
 export async function generateEmbedding(text: string): Promise<number[] | null> {
   if (!text || typeof text !== 'string' || text.trim() === '' || !PERPLEXITY_API_KEY) {
@@ -65,7 +76,7 @@ export async function generateCompletion(
   const {
     maxTokens = 500,
     temperature = 0.7,
-    systemPrompt,
+    systemPrompt = DEFAULT_SYSTEM_PROMPT,
     modelName = 'sonar-pro', // Modelo por defecto
   } = options;
 
@@ -97,11 +108,14 @@ export async function analyzeDocument(
   let systemPrompt = 'Eres un asistente legal especializado en derecho panameño.';
   
   if (documentType === 'jurisprudencia') {
-    systemPrompt += ' Analiza esta jurisprudencia e identifica los principales elementos: tribunal, fecha, hechos relevantes, fundamentos legales, decisión y relevancia. Responde en formato JSON.';
+    systemPrompt = `${DEFAULT_SYSTEM_PROMPT} 
+Analiza esta jurisprudencia e identifica los principales elementos: tribunal, fecha, hechos relevantes, fundamentos legales, decisión y relevancia. Responde en formato JSON.`;
   } else if (documentType === 'ley') {
-    systemPrompt += ' Analiza esta ley e identifica su objetivo, ámbito de aplicación, definiciones clave, obligaciones, prohibiciones y sanciones relevantes. Responde en formato JSON.';
+    systemPrompt = `${DEFAULT_SYSTEM_PROMPT} 
+Analiza esta ley e identifica su objetivo, ámbito de aplicación, definiciones clave, obligaciones, prohibiciones y sanciones relevantes. Responde en formato JSON.`;
   } else {
-    systemPrompt += ' Analiza este documento legal e identifica sus elementos principales, partes relevantes y posibles implicaciones. Responde en formato JSON.';
+    systemPrompt = `${DEFAULT_SYSTEM_PROMPT} 
+Analiza este documento legal e identifica sus elementos principales, partes relevantes y posibles implicaciones. Responde en formato JSON.`;
   }
 
   try {

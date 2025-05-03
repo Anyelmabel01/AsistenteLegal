@@ -8,6 +8,18 @@
 const API_KEY = process.env.PERPLEXITY_API_KEY || ''; // Clave API (solo servidor)
 const API_BASE_URL = process.env.PERPLEXITY_API_BASE_URL || 'https://api.perplexity.ai';
 
+// Prompt del sistema predeterminado para el asistente legal
+const DEFAULT_SYSTEM_PROMPT = `Eres un asistente legal inteligente con conocimientos profundos en derecho panameño. Tu tarea es analizar documentos legales, responder preguntas complejas y redactar textos jurídicos con razonamiento lógico y fundamentado.
+
+1. Analiza los textos/documentos legales que te presenten con detalle y precisión.
+2. Responde con un análisis detallado, explicando las bases legales, posibles interpretaciones y riesgos.
+3. Si te piden redactar un documento, hazlo con precisión jurídica, claridad y estilo formal.
+4. Adopta el rol de un abogado experto que asesora a un cliente, anticipando posibles dudas y ofreciendo recomendaciones.
+5. Usa terminología legal específica y evita respuestas genéricas o superficiales.
+6. Si la pregunta es ambigua, pide aclaraciones antes de responder.
+7. Proporciona ejemplos o referencias legales cuando sea posible.
+8. Prioriza el razonamiento deductivo para interpretar leyes y el razonamiento analógico para aplicar precedentes.`;
+
 /**
  * Genera una respuesta usando el modelo de Perplexity
  * @param {Array} messages - Los mensajes en formato ChatGPT [{role: 'user', content: 'Hola'}, ...]
@@ -38,6 +50,12 @@ export async function generateCompletion(messages, options = {}) {
       const systemMessages = messages.filter(msg => msg.role === 'system');
       if (systemMessages.length > 0) {
         validatedMessages.push(...systemMessages);
+      } else {
+        // Si no hay mensaje de sistema, usar el predeterminado
+        validatedMessages.push({
+          role: 'system',
+          content: DEFAULT_SYSTEM_PROMPT
+        });
       }
     }
     
@@ -115,7 +133,7 @@ export async function generateWebSearchCompletion(query, options = {}) {
   try {
     const { 
       model = 'sonar',
-      systemPrompt = 'Eres un asistente legal especializado. Proporciona respuestas precisas basadas en información actualizada. Explica tu razonamiento paso a paso, citando leyes y jurisprudencia relevante. Detalla el proceso lógico que seguiste para llegar a tus conclusiones y ofrece diferentes perspectivas cuando sea apropiado.'
+      systemPrompt = DEFAULT_SYSTEM_PROMPT
       // Ya no necesitamos maxTokens o temperature aquí, se manejan en el backend si es necesario
     } = options;
     
@@ -157,7 +175,7 @@ export async function generateWebSearchCompletion(query, options = {}) {
     // Mantener el fallback si la llamada al proxy falla
     try {
       const fallbackContent = await generateCompletion([
-        { role: 'system', content: 'Eres un asistente legal especializado. Debes responder con la información que tienes disponible, explicando detalladamente tu razonamiento jurídico, citando leyes relevantes y construyendo argumentos paso a paso. Indica cuando no estés seguro de algo, pero siempre ofrece un análisis completo basado en principios legales generales.' },
+        { role: 'system', content: DEFAULT_SYSTEM_PROMPT },
         { role: 'user', content: `No pudimos realizar la búsqueda en tiempo real, pero intentaré responder con un razonamiento jurídico detallado: ${query}` }
       ], { model: options.model || 'sonar-pro' });
       

@@ -7,7 +7,6 @@ import dynamic from 'next/dynamic';
 // Import components dynamically to avoid server rendering issues
 const Login = dynamic(() => import('../../components/Login'), { ssr: false });
 const Register = dynamic(() => import('../../components/Register'), { ssr: false });
-const Layout = dynamic(() => import('../../components/Layout'), { ssr: false });
 const ChatInterface = dynamic(() => import('../../components/ChatInterface'), { ssr: false });
 
 // Define Document interface
@@ -59,12 +58,10 @@ export default function ClientPage() {
   }
 
   return (
-    <Layout>
-      <div className="space-y-8">
-        <div>
-          <ChatInterface />
-        </div>
+    <div className="space-y-8">
+      <div>
+        <ChatInterface />
       </div>
-    </Layout>
+    </div>
   );
 } 

@@ -4,9 +4,9 @@ import React from 'react';
 import dynamic from 'next/dynamic';
 
 // Importar ClientLayout dinámicamente para evitar problemas de hidratación
-const ClientLayout = dynamic(() => import('./ClientLayout'), {
-  ssr: false
-});
+// const ClientLayout = dynamic(() => import('./ClientLayout'), {
+//   ssr: false
+// });
 
 interface ClientLayoutWrapperProps {
   children: React.ReactNode;
@@ -29,5 +29,7 @@ export default function ClientLayoutWrapper({ children }: ClientLayoutWrapperPro
     );
   }
 
-  return <ClientLayout>{children}</ClientLayout>;
+  // Devolver directamente los children, ya que el layout principal se encarga
+  // return <ClientLayout>{children}</ClientLayout>; 
+  return <>{children}</>;
 } 

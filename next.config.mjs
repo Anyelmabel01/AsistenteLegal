@@ -12,6 +12,14 @@ const nextConfig = {
     optimizeCss: true,
     scrollRestoration: true,
   },
+  // La propiedad 'api' no es reconocida directamente en Next.js reciente
+  // Ahora usamos serverRuntimeConfig para estas configuraciones
+  serverRuntimeConfig: {
+    bodyParser: {
+      sizeLimit: '50mb',
+    },
+    responseLimit: false,
+  },
   async headers() {
     return [
       {

@@ -144,24 +144,90 @@ export async function generateWebSearchCompletion(query, options = {}) {
   try {
     const { 
       model = 'sonar',
-      systemPrompt = DEFAULT_SYSTEM_PROMPT
-      // Ya no necesitamos maxTokens o temperature aquí, se manejan en el backend si es necesario
+      systemPrompt = DEFAULT_SYSTEM_PROMPT,
+      attachedPdfText = null,
+      hasPDF = false
     } = options;
     
-    // Llamar a nuestra ruta API de backend
-    const response = await fetch('/api/perplexity-search', { // <- Cambio de URL
+    // Log para depuración mejorado
+    console.log('[utils/perplexity] generateWebSearchCompletion recibió:', {
+      queryLength: query?.length || 0,
+      model,
+      hasPDF: Boolean(hasPDF),
+      attachedPdfTextPresente: attachedPdfText !== null && attachedPdfText !== undefined,
+      attachedPdfTextTipo: typeof attachedPdfText,
+      attachedPdfTextLongitud: typeof attachedPdfText === 'string' ? attachedPdfText.length : 0,
+      attachedPdfTextEjemplo: typeof attachedPdfText === 'string' && attachedPdfText.length > 0 
+        ? `${attachedPdfText.substring(0, 50)}...` 
+        : 'no disponible',
+      optionsKeys: Object.keys(options)
+    });
+    
+    // Validar formato del texto del PDF
+    let validPdfText = typeof attachedPdfText === 'string' && attachedPdfText.trim().length > 0 
+      ? attachedPdfText 
+      : null;
+    
+    // Si el texto del PDF es muy grande, reducirlo para evitar problemas de transmisión
+    // (Una limitación habitual para payloads JSON es alrededor de 4-10MB)
+    const MAX_PDF_TEXT_LENGTH = 500000; // Aproximadamente 500KB de texto
+    
+    if (validPdfText && validPdfText.length > MAX_PDF_TEXT_LENGTH) {
+      console.warn(`[utils/perplexity] ⚠️ El texto del PDF es muy grande (${validPdfText.length} caracteres), se reducirá`);
+      
+      // Extraer los primeros y últimos párrafos para mantener contexto
+      const paragraphs = validPdfText.split('\n\n');
+      const firstParagraphs = paragraphs.slice(0, 50).join('\n\n');
+      const lastParagraphs = paragraphs.slice(-50).join('\n\n');
+      
+      validPdfText = `${firstParagraphs}\n\n[...El documento es demasiado extenso (${validPdfText.length} caracteres). 
+Se han extraído las partes más relevantes...]\n\n${lastParagraphs}`;
+      
+      console.log(`[utils/perplexity] 📄 Texto del PDF reducido a ${validPdfText.length} caracteres`);
+    }
+    
+    // Establecer la bandera hasPDF basada en si hay texto válido
+    const validHasPdf = validPdfText !== null;
+    
+    // Siempre incluir estos campos en la solicitud, incluso si son null
+    const requestBody = {
+      query: query,
+      model: model,
+      systemPrompt: systemPrompt,
+      attachedPdfText: validPdfText,
+      hasPDF: validHasPdf
+    };
+    
+    // Log de confirmación si hay texto de PDF válido
+    if (validPdfText) {
+      console.log('[utils/perplexity] Incluyendo texto de PDF en la solicitud ✅', { 
+        longitud: validPdfText.length,
+        primerosCaracteres: validPdfText.substring(0, 100) + '...',
+        hasPDF: validHasPdf
+      });
+    }
+    
+    // Verificar las claves en el cuerpo de la solicitud
+    console.log('[utils/perplexity] Claves en el cuerpo de la solicitud:', Object.keys(requestBody));
+    
+    // Log completo para depuración 
+    console.log('[utils/perplexity] 📨 ENVIANDO BODY COMPLETO:', JSON.stringify({
+      queryLength: query?.length || 0,
+      modelType: typeof model,
+      systemPromptLength: systemPrompt?.length || 0,
+      attachedPdfTextLength: validPdfText?.length || 0,
+      hasPDF: validHasPdf,
+      bodyKeys: Object.keys(requestBody),
+      pdfSample: validPdfText ? validPdfText.substring(0, 100) + '...' : null
+    }));
+    
+    // Llamar a nuestra ruta API de backend con fetch
+    const response = await fetch('/api/perplexity-search', {
       method: 'POST',
       headers: {
-        // 'Authorization': `Bearer ${API_KEY}`, // <- Eliminado: La autorización la hace el backend
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify({
-        query: query,
-        model: model, // Enviar modelo deseado al backend
-        systemPrompt: systemPrompt // Enviar prompt del sistema al backend
-        // Ya no enviamos otros parámetros como focus, max_tokens, etc.
-        // El backend se encargará de pasarlos a Perplexity si es necesario.
-      })
+      body: JSON.stringify(requestBody)
     });
     
     if (!response.ok) {

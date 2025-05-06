@@ -11,7 +11,14 @@ import {
 } from '@ant-design/icons';
 import { MicrophoneIcon, StopIcon, DocumentIcon, PhotoIcon, XMarkIcon } from '@heroicons/react/24/solid';
 
-const ChatInput = ({ onSendMessage, isLoading }) => {
+const ChatInput = ({ 
+  onSendMessage, 
+  isLoading, 
+  onPdfFileSelected, 
+  isProcessingPdf, 
+  pdfFileName, 
+  pdfError 
+}) => {
   const [inputValue, setInputValue] = useState('');
   const [showAttachments, setShowAttachments] = useState(false);
   const [attachments, setAttachments] = useState([]);
@@ -94,33 +101,50 @@ const ChatInput = ({ onSendMessage, isLoading }) => {
     const files = Array.from(e.target.files);
     if (!files.length) return;
     
-    const newAttachments = files.map(file => {
-      // Determinar tipo de archivo
-      let type = 'other';
-      if (file.type.startsWith('image/')) {
-        type = 'image';
-      } else if (file.type.startsWith('audio/')) {
-        type = 'audio';
-      } else if (
-        file.type === 'application/pdf' || 
-        file.type.includes('word') || 
-        file.type.includes('text') || 
-        file.type.includes('document')
-      ) {
-        type = 'document';
+    const newGenericAttachments = [];
+    let pdfFileFound = false; // Para evitar procesar el mismo PDF dos veces si se sube con otros archivos
+
+    files.forEach(file => {
+      // Si es un PDF, llamar a la función de extracción de ChatInterface
+      if (file.type === 'application/pdf' && onPdfFileSelected) {
+        onPdfFileSelected(file);
+        pdfFileFound = true; // Marcamos que un PDF fue enviado a extracción
+        // No lo añadimos a newGenericAttachments aquí, ya que su texto se manejará por separado
+      } else {
+        // Para otros tipos de archivos, mantener la lógica existente
+        let type = 'other';
+        if (file.type.startsWith('image/')) {
+          type = 'image';
+        } else if (file.type.startsWith('audio/')) {
+          type = 'audio';
+        } else if (
+          file.type.includes('word') || 
+          file.type.includes('text') || 
+          file.type.includes('document') // Otros documentos que no son PDF
+        ) {
+          type = 'document';
+        }
+        
+        newGenericAttachments.push({
+          file,
+          name: file.name,
+          size: file.size,
+          type,
+          id: crypto.randomUUID()
+        });
       }
-      
-      return {
-        file,
-        name: file.name,
-        size: file.size,
-        type,
-        id: crypto.randomUUID()
-      };
     });
     
-    setAttachments(prev => [...prev, ...newAttachments]);
-    setShowAttachments(false);
+    // Añadir solo los adjuntos genéricos (no PDF si se envió a extracción) al estado local
+    if (newGenericAttachments.length > 0) {
+      setAttachments(prev => [...prev, ...newGenericAttachments]);
+    }
+
+    // Si se procesó un PDF para extracción, es probable que no queramos mostrar el menú de adjuntos genéricos inmediatamente
+    // o podríamos querer un feedback diferente. Por ahora, cerramos el menú si se encontró un PDF.
+    if (pdfFileFound) {
+        setShowAttachments(false);
+    }
     
     // Limpiar input para permitir seleccionar el mismo archivo nuevamente
     e.target.value = '';
@@ -202,7 +226,7 @@ const ChatInput = ({ onSendMessage, isLoading }) => {
 
   return (
     <form onSubmit={handleSubmit} className="px-4 py-3">
-      {/* Visualización de adjuntos */}
+      {/* Visualización de adjuntos genéricos (no el PDF en procesamiento) */}
       {attachments.length > 0 && (
         <div className="flex flex-wrap gap-2 mb-2 p-2 bg-gray-50 rounded-md">
           {attachments.map(attachment => (
@@ -230,6 +254,26 @@ const ChatInput = ({ onSendMessage, isLoading }) => {
               </button>
             </div>
           ))}
+        </div>
+      )}
+      
+      {/* NUEVO: Visualización del estado del PDF en procesamiento/procesado */}
+      {isProcessingPdf && (
+        <div className="flex items-center text-sm text-blue-600 p-2 bg-blue-50 rounded-md mb-2">
+          <LoadingOutlined className="mr-2" />
+          Procesando PDF: {pdfFileName}...
+        </div>
+      )}
+      {!isProcessingPdf && pdfFileName && !pdfError && (
+        <div className="flex items-center text-sm text-green-600 p-2 bg-green-50 rounded-md mb-2">
+          <FileTextOutlined className="mr-2" />
+          PDF listo: {pdfFileName}
+        </div>
+      )}
+      {pdfError && (
+        <div className="flex items-center text-sm text-red-600 p-2 bg-red-50 rounded-md mb-2">
+          <CloseCircleOutlined className="mr-2" />
+          Error con PDF: {pdfError}
         </div>
       )}
       

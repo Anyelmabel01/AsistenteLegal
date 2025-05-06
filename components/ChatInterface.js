@@ -29,9 +29,88 @@ const ChatInterface = () => {
   const [searchMode, setSearchMode] = useState(true); // true = búsqueda web, false = solo conversación
   const [researchMode, setResearchMode] = useState(false); // true = investigación profunda
   
+  // Estados para el manejo de PDF
+  const [extractedPdfText, setExtractedPdfText] = useState(null);
+  const [isProcessingPdf, setIsProcessingPdf] = useState(false);
+  const [pdfError, setPdfError] = useState(null);
+  const [pdfFileName, setPdfFileName] = useState(null);
+  
   // Function to scroll to the bottom of messages
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
+
+  // Nueva función para manejar la extracción de texto de PDF
+  const handlePdfExtraction = async (file) => {
+    if (!file) return;
+
+    if (file.type !== 'application/pdf') {
+      setPdfError('Por favor, selecciona un archivo PDF.');
+      setExtractedPdfText(null);
+      setPdfFileName(null);
+      return;
+    }
+
+    setIsProcessingPdf(true);
+    setPdfError(null);
+    setExtractedPdfText(null);
+    setPdfFileName(file.name);
+
+    const formData = new FormData();
+    formData.append('file', file);
+
+    try {
+      console.log(`[ChatInterface] Iniciando extracción de PDF: ${file.name}, tamaño: ${file.size} bytes`);
+      
+      const response = await fetch('/api/extract-pdf-text', {
+        method: 'POST',
+        body: formData,
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Error al extraer texto del PDF.');
+      }
+
+      // Validación estricta del texto extraído
+      if (data.text === undefined || data.text === null) {
+        throw new Error('El servidor devolvió un formato de texto inválido.');
+      }
+
+      const extractedText = data.text.trim();
+      
+      if (extractedText.length > 0) {
+        // El texto parece válido, guardarlo en el estado
+        setExtractedPdfText(extractedText);
+        
+        // Logs detallados para depuración
+        console.log(`[ChatInterface] ✅ Texto del PDF extraído correctamente (${extractedText.length} caracteres).`);
+        console.log(`[ChatInterface] Primeros 100 caracteres: ${extractedText.substring(0, 100)}...`);
+        console.log(`[ChatInterface] Tipo de dato: ${typeof extractedText}`);
+        
+        // Prueba explícita de que se puede acceder al texto
+        if (typeof extractedText === 'string') {
+          // Guardar en localStorage para verificar que el texto persiste
+          try {
+            localStorage.setItem('lastExtractedPdfText', extractedText.substring(0, 100));
+            console.log('[ChatInterface] Muestra del texto guardada en localStorage para verificar');
+          } catch (e) {
+            console.log('[ChatInterface] No se pudo guardar en localStorage, pero no es crítico');
+          }
+        }
+      } else {
+        setPdfError('No se pudo extraer texto del PDF o el documento está vacío.');
+        setExtractedPdfText(null);
+        console.log('[ChatInterface] ❌ El PDF no contiene texto extraíble o está vacío.');
+      }
+    } catch (err) {
+      console.error('[ChatInterface] Error en handlePdfExtraction:', err);
+      setPdfError(err.message || 'Ocurrió un error al procesar el PDF.');
+      setExtractedPdfText(null);
+    } finally {
+      setIsProcessingPdf(false);
+    }
   };
 
   // Load message history for the logged-in user
@@ -170,8 +249,19 @@ const ChatInterface = () => {
       return;
     }
 
-    if (inputText.trim() === '' && attachments.length === 0) {
-      return; // No enviar mensajes vacíos sin adjuntos
+    // Guardar una copia del texto del PDF antes de cualquier procesamiento
+    const pdfTextToSend = extractedPdfText;
+    const hasActualPdfText = Boolean(pdfTextToSend && pdfTextToSend.trim().length > 0);
+
+    // Log temprano para verificar el texto del PDF
+    console.log('[ChatInterface] Texto del PDF al inicio de handleSendMessage:', {
+      tiene: hasActualPdfText,
+      longitud: pdfTextToSend ? pdfTextToSend.length : 0,
+      muestra: pdfTextToSend ? pdfTextToSend.substring(0, 50) + '...' : 'ninguno'
+    });
+
+    if (inputText.trim() === '' && attachments.length === 0 && !hasActualPdfText) {
+      return; // No enviar mensajes vacíos sin adjuntos o PDF procesado
     }
 
     // Crear objeto para mensaje del usuario
@@ -219,6 +309,18 @@ const ChatInterface = () => {
         userMessage.attachments = processedAttachments;
       }
 
+      // Si hay texto de PDF extraído, agregar indicador al mensaje 
+      if (hasActualPdfText) {
+        if (pdfFileName) {
+          enhancedUserContent = `${enhancedUserContent}\n\n[PDF adjunto: ${pdfFileName}]`;
+          userMessage.content = enhancedUserContent;
+        }
+        
+        // Añadir metadatos al mensaje sobre el PDF (no aparecerá en el mensaje visible)
+        userMessage.hasPDF = true;
+        userMessage.pdfTextLength = pdfTextToSend.length;
+      }
+
       // 1. Guardar mensaje del usuario con contenido aumentado en Supabase
       const { data: savedUserMessage, error: insertError } = await supabase
         .from('chat_messages')
@@ -228,7 +330,8 @@ const ChatInterface = () => {
           user_id: userMessage.user_id,
           attachments: processedAttachments,
           model: selectedModel,
-          search_mode: searchMode
+          search_mode: searchMode,
+          hasPDF: hasActualPdfText // Guardar la bandera de PDF en la base de datos
         })
         .select()
         .single();
@@ -261,10 +364,28 @@ const ChatInterface = () => {
         // Llamar a la API correcta según el modo
         let assistantResponse;
         
+        const optionsForAI = { 
+          model: selectedModel, 
+          attachedPdfText: pdfTextToSend, // Pasar la copia del texto del PDF
+          hasPDF: hasActualPdfText       // Pasar la bandera si hay texto de PDF
+        };
+        
+        // Añadir logs para depuración
+        console.log('[DEBUG ChatInterface] Valores antes de llamar a la API:', { 
+          extractedPdfTextPresente: Boolean(pdfTextToSend),
+          extractedPdfTextLongitud: pdfTextToSend ? pdfTextToSend.length : 0,
+          extractedPdfTextEjemplo: pdfTextToSend ? `${pdfTextToSend.substring(0, 50)}...` : 'null',
+          hasActualPdfText, 
+          searchMode,
+          selectedModel,
+          enhancedUserContent
+        });
+        
         if (searchMode) {
           // Para el modo de investigación, usamos sonar-pro con un prompt específico
           if (researchMode) {
             assistantResponse = await generateWebSearchCompletion(enhancedUserContent, { 
+              ...optionsForAI, // Pasar opciones comunes
               model: 'sonar-pro',
               systemPrompt: `Eres un asistente legal inteligente con conocimientos profundos en derecho panameño. Tu tarea es realizar investigaciones jurídicas exhaustivas, analizar documentos legales, responder preguntas complejas y redactar textos jurídicos con razonamiento lógico y fundamentado.
 
@@ -290,11 +411,11 @@ Cuando recibas un caso o consulta, sigue estos pasos:
             });
           } else {
             // Modo búsqueda normal
-            assistantResponse = await generateWebSearchCompletion(enhancedUserContent, { model: selectedModel });
+            assistantResponse = await generateWebSearchCompletion(enhancedUserContent, optionsForAI);
           }
         } else {
           // Modo conversación normal
-          assistantResponse = await generateCompletion(historyForAI, { model: selectedModel });
+          assistantResponse = await generateCompletion(historyForAI, optionsForAI);
         }
 
         if (!assistantResponse) {
@@ -337,6 +458,22 @@ Cuando recibas un caso o consulta, sigue estos pasos:
       setError(`Error: ${err.message}. Intenta de nuevo.`);
     } finally {
       setIsLoading(false);
+      
+      // Verificar que aún tenemos el texto del PDF antes de limpiarlo
+      console.log('[ChatInterface] Verificando texto del PDF antes de limpiarlo:', {
+        originalText: pdfTextToSend ? `${pdfTextToSend.substring(0, 30)}...` : 'ninguno',
+        estadoActual: extractedPdfText ? `${extractedPdfText.substring(0, 30)}...` : 'ninguno',
+      });
+      
+      // Limpiar estados del PDF después de enviar el mensaje
+      if (hasActualPdfText) {
+        // Limpiar estados relacionados con PDF después de usarlo
+        setTimeout(() => {
+          setExtractedPdfText(null);
+          setPdfFileName(null);
+          setPdfError(null);
+        }, 500);
+      }
     }
   };
   
@@ -483,7 +620,14 @@ Cuando recibas un caso o consulta, sigue estos pasos:
 
       {/* Input Area */}
       <div className="bg-white border-t border-primary-100 animate-slide-in">
-        <ChatInput onSendMessage={handleSendMessage} isLoading={isLoading} />
+        <ChatInput 
+          onSendMessage={handleSendMessage} 
+          isLoading={isLoading}
+          onPdfFileSelected={handlePdfExtraction}
+          isProcessingPdf={isProcessingPdf}
+          pdfFileName={pdfFileName}
+          pdfError={pdfError}
+        />
       </div>
     </div>
   );

@@ -10,7 +10,6 @@ import {
   CloseCircleOutlined
 } from '@ant-design/icons';
 import { MicrophoneIcon, StopIcon, DocumentIcon, PhotoIcon, XMarkIcon } from '@heroicons/react/24/solid';
-import { pipeline } from '@xenova/transformers';
 
 const ChatInput = ({ 
   onSendMessage, 
@@ -31,38 +30,11 @@ const ChatInput = ({
   const fileInputRef = useRef(null);
   const mediaRecorderRef = useRef(null);
   const audioChunksRef = useRef([]);
-  const isToggleInProgressRef = useRef(false);
-
-  // Ref para el pipeline de transcripción y estados relacionados
-  const transcriberPipelineRef = useRef(null);
-  const [isModelLoading, setIsModelLoading] = useState(false);
-  const [isTranscribing, setIsTranscribing] = useState(false);
 
   // Focus input on load
   useEffect(() => {
     inputRef.current?.focus();
   }, []);
-
-  // Inicializar el pipeline de transcripción
-  useEffect(() => {
-    async function initializeTranscriber() {
-      if (!transcriberPipelineRef.current && !isModelLoading) {
-        setIsModelLoading(true);
-        try {
-          console.log('Inicializando pipeline de transcripción...');
-          // Usamos Xenova/whisper-tiny para una carga más rápida inicialmente
-          const transcriber = await pipeline('automatic-speech-recognition', 'Xenova/whisper-tiny');
-          transcriberPipelineRef.current = transcriber;
-          console.log('Pipeline de transcripción listo.');
-        } catch (error) {
-          console.error('Error al inicializar el pipeline de transcripción:', error);
-          // Aquí podrías informar al usuario del error
-        }
-        setIsModelLoading(false);
-      }
-    }
-    initializeTranscriber();
-  }, []); // El array vacío asegura que se ejecute solo una vez al montar
 
   // Cleanup recording resources when component unmounts
   useEffect(() => {
@@ -89,10 +61,32 @@ const ChatInput = ({
 
   // Función para detener tracks de media
   const stopMediaTracks = () => {
-    console.log('[ChatInput] stopMediaTracks llamado.');
+    console.log("Limpiando recursos de audio...");
+    
     if (mediaRecorderRef.current && mediaRecorderRef.current.stream) {
-      mediaRecorderRef.current.stream.getTracks().forEach(track => track.stop());
+      try {
+        const tracks = mediaRecorderRef.current.stream.getTracks();
+        tracks.forEach(track => {
+          track.stop();
+          console.log(`Track de ${track.kind} detenido`);
+        });
+      } catch (e) {
+        console.error("Error al detener tracks:", e);
+      }
+      // Limpiar la referencia
+      mediaRecorderRef.current = null;
     }
+  };
+
+  // Función auxiliar para resetear el estado de grabación
+  const resetRecordingState = () => {
+    stopMediaTracks();
+    setIsRecording(false);
+    if (recordingInterval) {
+      clearInterval(recordingInterval);
+      setRecordingInterval(null);
+    }
+    setRecordingTime(0);
   };
 
   // Manejar el cambio en el input de texto
@@ -178,147 +172,130 @@ const ChatInput = ({
     e.target.value = '';
   };
 
-  // Iniciar grabación de audio
+  // Iniciar grabación de audio - implementación mejorada
   const handleStartRecording = async () => {
-    console.log('[ChatInput] handleStartRecording llamado.');
-    if (isModelLoading || isTranscribing) { 
-      alert('El sistema está ocupado, espera a que termine la carga del modelo o la transcripción.');
-      return;
-    }
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      console.log("Iniciando grabación de audio...");
+      
+      // 1. Verificar soporte de API
+      if (!navigator.mediaDevices || !window.MediaRecorder) {
+        alert("Tu navegador no soporta la grabación de audio");
+        return;
+      }
+      
+      // 2. Limpiar cualquier grabación anterior
+      stopMediaTracks();
       audioChunksRef.current = [];
       
-      const mediaRecorder = new MediaRecorder(stream);
-      mediaRecorderRef.current = mediaRecorder;
-      
-      mediaRecorder.ondataavailable = (e) => {
-        console.log('[ChatInput] mediaRecorder.ondataavailable disparado. Tamaño de e.data:', e.data.size);
-        if (e.data.size > 0) {
-          audioChunksRef.current.push(e.data);
-        }
-      };
-      
-      mediaRecorder.onstop = async () => {
-        console.log('[ChatInput] mediaRecorder.onstop ejecutado.');
-        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
-        console.log('[ChatInput] Tamaño del audioBlob:', audioBlob.size);
+      // 3. Obtener acceso al micrófono
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ 
+          audio: true,
+          video: false 
+        });
         
-        audioChunksRef.current = [];
-        setIsRecording(false);
-        if (recordingInterval) {
-          clearInterval(recordingInterval);
-          setRecordingInterval(null);
+        // 4. Configurar y crear MediaRecorder
+        let options = {};
+        if (MediaRecorder.isTypeSupported('audio/webm')) {
+          options = { mimeType: 'audio/webm' };
         }
-        setRecordingTime(0);
-        stopMediaTracks();
-
-        if (!transcriberPipelineRef.current || isModelLoading) {
-          alert('El modelo de transcripción aún no está listo. Por favor, espera un momento e intenta de nuevo.');
-          return;
-        }
-
-        setIsTranscribing(true);
-        let audioURL = null;
-
-        try {
-          console.log('Creando Object URL para el audio blob...');
-          audioURL = URL.createObjectURL(audioBlob);
-          console.log('Object URL creado:', audioURL);
-          console.log('Transcribiendo audio desde URL...');
-          
-          const transcription = await transcriberPipelineRef.current(audioURL);
-          console.log('Transcripción completa:', transcription);
-          
-          if (transcription && typeof transcription.text === 'string' && transcription.text.trim() !== '') {
-            onSendMessage(transcription.text, []);
-            setInputValue('');
-          } else if (transcription && typeof transcription.text === 'string' && transcription.text.trim() === '') {
-            console.log('Transcripción resultó en texto vacío (posiblemente silencio detectado).');
-            alert('No se detectó voz en el audio o la grabación está vacía.');
-          } else {
-            console.error('Formato de transcripción inesperado o texto faltante:', transcription);
-            alert('No se pudo obtener texto de la transcripción. Formato inesperado.');
+        
+        const recorder = new MediaRecorder(stream, options);
+        mediaRecorderRef.current = recorder;
+        
+        // 5. Configurar manejadores de eventos
+        recorder.ondataavailable = (event) => {
+          if (event.data && event.data.size > 0) {
+            audioChunksRef.current.push(event.data);
+            console.log(`Datos de audio recibidos: ${event.data.size} bytes`);
           }
-
-        } catch (error) {
-          console.error('Error detallado durante la transcripción:', error);
-          alert('Ocurrió un error al transcribir el audio. Revisa la consola para más detalles.');
-        } finally {
-          setIsTranscribing(false);
-          if (audioURL) {
-            console.log('Revocando Object URL:', audioURL);
-            URL.revokeObjectURL(audioURL);
-          }
+        };
+        
+        // 6. Iniciar grabación y actualizar UI
+        recorder.start(500); // Capturar cada 500ms para mayor fiabilidad
+        console.log("MediaRecorder iniciado correctamente");
+        setIsRecording(true);
+        
+        // 7. Iniciar temporizador
+        const interval = setInterval(() => {
+          setRecordingTime(prev => prev + 1);
+        }, 1000);
+        setRecordingInterval(interval);
+        
+      } catch (err) {
+        if (err.name === 'NotAllowedError') {
+          alert("Permiso de micrófono denegado");
+        } else {
+          alert(`No se pudo acceder al micrófono: ${err.message}`);
         }
-      };
-      
-      // Escuchar errores en MediaRecorder
-      mediaRecorder.onerror = (event) => {
-        console.error('[ChatInput] MediaRecorder error:', event.error);
-        // Podríamos también intentar alertar al usuario o resetear estados aquí si es necesario
-        alert(`Error con MediaRecorder: ${event.error.name} - ${event.error.message}`);
-        setIsRecording(false); // Asegurar que el estado de grabación se resetee
-        if (recordingInterval) {
-          clearInterval(recordingInterval);
-          setRecordingInterval(null);
-        }
-        setRecordingTime(0);
-        stopMediaTracks(); // Detener tracks si hubo un error en el recorder
-      };
-      
-      mediaRecorder.start();
-      console.log('[ChatInput] mediaRecorder.start() llamado. Estado:', mediaRecorderRef.current?.state);
-      setIsRecording(true);
-      
-      const interval = setInterval(() => {
-        setRecordingTime(prev => prev + 1);
-      }, 1000);
-      
-      setRecordingInterval(interval);
-      
+        console.error("Error al iniciar grabación:", err);
+      }
     } catch (error) {
-      console.error('Error al iniciar grabación:', error);
-      alert('No se pudo acceder al micrófono. Por favor, verifica los permisos.');
+      console.error("Error general en grabación:", error);
+      alert("Ocurrió un error al intentar grabar");
       setIsRecording(false);
     }
   };
 
-  // Detener grabación de audio
-  const handleStopRecording = () => {
-    console.log('[ChatInput] handleStopRecording llamado. Estado del MediaRecorder:', mediaRecorderRef.current?.state);
-    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
-      mediaRecorderRef.current.stop();
-    } else {
-      console.log('[ChatInput] handleStopRecording: MediaRecorder no activo o no existe.');
-    }
-  };
-
-  // NUEVA FUNCIÓN: Manejar el inicio/parada de grabación con un solo botón
-  const handleToggleRecording = async () => {
-    if (isToggleInProgressRef.current) {
-      console.log('[ChatInput] Toggle en progreso, ignorando clic.');
+  // Detener grabación de audio y procesar el resultado
+  const handleStopRecording = async () => {
+    console.log("Deteniendo grabación...");
+    
+    if (!mediaRecorderRef.current) {
+      console.warn("No hay grabación activa para detener");
+      resetRecordingState();
       return;
     }
-
-    console.log('[ChatInput] handleToggleRecording. isRecording:', isRecording, 'isModelLoading:', isModelLoading, 'isTranscribing:', isTranscribing);
-    if (isModelLoading || isTranscribing) {
-        alert('Espera a que termine la carga del modelo o la transcripción actual.');
-        return;
-    }
-
-    isToggleInProgressRef.current = true; // Bloquear
+    
     try {
-      if (isRecording) {
-        handleStopRecording(); // Sincrónico, onstop es asincrónico y maneja setIsRecording(false)
+      // Solo detener si está grabando
+      if (mediaRecorderRef.current.state === 'recording') {
+        mediaRecorderRef.current.stop();
+        console.log("MediaRecorder detenido");
+        
+        // Esperar un momento para asegurar que se procesen todos los datos
+        setTimeout(() => {
+          try {
+            // Procesar los chunks de audio
+            const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+            
+            if (audioBlob.size > 0) {
+              console.log(`Audio grabado: ${audioBlob.size} bytes`);
+              
+              // Crear archivo
+              const audioFile = new File([audioBlob], `nota_de_voz_${Date.now()}.webm`, { 
+                type: 'audio/webm' 
+              });
+              
+              // Añadir a adjuntos
+              const newAttachment = {
+                file: audioFile,
+                name: 'Nota de voz',
+                size: audioFile.size,
+                type: 'audio',
+                id: crypto.randomUUID()
+              };
+              
+              setAttachments(prev => [...prev, newAttachment]);
+              console.log("✓ Audio añadido correctamente");
+            } else {
+              console.error("El blob de audio está vacío");
+              alert("La grabación está vacía. Intenta de nuevo.");
+            }
+          } catch (error) {
+            console.error("Error al procesar audio:", error);
+            alert("Error al procesar la grabación");
+          } finally {
+            // Limpiar estado
+            resetRecordingState();
+          }
+        }, 500); // Esperar 500ms para asegurar que se completen los eventos
       } else {
-        await handleStartRecording(); // Asincrónico, maneja setIsRecording(true)
+        resetRecordingState();
       }
-    } catch (error) {
-      console.error('[ChatInput] Error en handleToggleRecording:', error);
-      // Asegurar que se desbloquee incluso si hay un error inesperado aquí
-    } finally {
-      isToggleInProgressRef.current = false; // Desbloquear
+    } catch (e) {
+      console.error("Error al detener grabación:", e);
+      resetRecordingState();
     }
   };
 
@@ -387,22 +364,6 @@ const ChatInput = ({
           Error con PDF: {pdfError}
         </div>
       )}
-
-      {/* Indicador de carga del modelo de IA */}
-      {isModelLoading && (
-        <div className="flex items-center text-sm text-purple-600 p-2 bg-purple-50 rounded-md mb-2">
-          <LoadingOutlined className="mr-2" />
-          Cargando modelo de IA para transcripción... (puede tardar la primera vez)
-        </div>
-      )}
-
-      {/* Indicador de transcripción en progreso */}
-      {isTranscribing && (
-        <div className="flex items-center text-sm text-teal-600 p-2 bg-teal-50 rounded-md mb-2">
-          <LoadingOutlined className="mr-2" />
-          Transcribiendo audio...
-        </div>
-      )}
       
       {/* Interfaz de grabación */}
       {isRecording && (
@@ -411,6 +372,13 @@ const ChatInput = ({
             <div className="h-3 w-3 rounded-full bg-red-500 mr-2"></div>
             <span className="text-red-700 font-medium">Grabando: {formatTime(recordingTime)}</span>
           </div>
+          <button 
+            type="button"
+            onClick={handleStopRecording}
+            className="flex items-center justify-center h-8 w-8 rounded-full bg-red-100 text-red-600 hover:bg-red-200"
+          >
+            <StopIcon className="h-4 w-4" />
+          </button>
         </div>
       )}
       
@@ -424,7 +392,7 @@ const ChatInput = ({
             onKeyDown={handleKeyDown}
             placeholder="Escribe tu mensaje aquí..."
             autoSize={{ minRows: 1, maxRows: 5 }}
-            disabled={isLoading || isRecording || isModelLoading || isTranscribing}
+            disabled={isLoading || isRecording}
             className="pr-10 resize-none rounded-xl border-gray-300 focus:border-primary-500 focus:ring-1 focus:ring-primary-500"
           />
           
@@ -437,7 +405,7 @@ const ChatInput = ({
                 size="small"
                 onClick={() => setShowAttachments(!showAttachments)}
                 className={`text-gray-600 hover:text-primary-600 ${showAttachments ? 'text-primary-600' : ''}`}
-                disabled={isLoading || isRecording || isModelLoading || isTranscribing}
+                disabled={isLoading || isRecording}
               />
             </Tooltip>
           </div>
@@ -464,14 +432,14 @@ const ChatInput = ({
                     className="text-blue-600 hover:bg-blue-50"
                   />
                 </Tooltip>
-                <Tooltip title={isRecording ? "Detener grabación" : "Grabar nota de voz"}>
+                <Tooltip title="Grabar nota de voz">
                   <Button 
                     type="text" 
-                    icon={isRecording ? <StopIcon className="h-5 w-5" /> : <AudioOutlined />}
+                    icon={<AudioOutlined />} 
                     size="small"
-                    onClick={handleToggleRecording}
-                    className={isRecording ? "text-red-600 hover:bg-red-50" : "text-green-600 hover:bg-green-50"}
-                    disabled={isModelLoading || isTranscribing}
+                    onClick={handleStartRecording}
+                    className="text-green-600 hover:bg-green-50"
+                    disabled={isRecording}
                   />
                 </Tooltip>
               </div>
@@ -484,7 +452,7 @@ const ChatInput = ({
           type="primary"
           icon={isLoading ? <LoadingOutlined /> : <SendOutlined />}
           onClick={handleSubmit}
-          disabled={isLoading || (inputValue.trim() === '' && attachments.length === 0) || isRecording || isModelLoading || isTranscribing}
+          disabled={isLoading || (inputValue.trim() === '' && attachments.length === 0) || isRecording}
           className="rounded-full flex items-center justify-center h-10 w-10 bg-primary-600 hover:bg-primary-700 border-0 text-white shadow-md"
         />
         

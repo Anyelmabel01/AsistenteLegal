@@ -2,8 +2,8 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams } from 'next/navigation';
-import { useAuth } from '../src/contexts/auth';
-import { supabase } from '../src/lib/supabaseClient';
+import { useAuth } from '../lib/auth';
+import { supabase } from '../lib/supabaseClient';
 import { generateEmbedding } from '../lib/perplexity';
 // Temporarily mock the function instead of importing it
 // import { generateLegalAnalysis } from '../utils/openaiLegal';

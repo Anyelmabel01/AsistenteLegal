@@ -1,8 +1,7 @@
 import { useState, useEffect } from 'react';
-import { useAuth } from '../src/contexts/auth';
+import { useAuth } from '../lib/auth';
 import { getUserDocuments } from '../utils/documentService';
-import { supabase } from '../src/lib/supabaseClient';
-import { getPublicUrl } from '../src/lib/supabaseClient';
+import { supabase, getPublicUrl } from '../lib/supabaseClient';
 
 type Document = {
   id: string;

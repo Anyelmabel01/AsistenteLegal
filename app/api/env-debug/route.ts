@@ -1,6 +1,6 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 
-export async function GET(req: NextRequest) {
+export async function GET() {
   // Esta ruta es solo para depuración, no deberías dejarla en producción
   
   // Verificar variables de entorno directamente

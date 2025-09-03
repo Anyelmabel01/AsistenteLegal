@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "supabase": {
+      "command": "npx",
+      "args": [
+        "@anthropic-ai/mcp-server-supabase",
+        "https://rrawbornbfgohynokhzo.supabase.co",
+        "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJyYXdib3JuYmZnb2h5bm9raHpvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDQ5MDIyNTAsImV4cCI6MjA2MDQ3ODI1MH0.z_Onm3bVK1ZmQFMx23B9JywAyPMNvt5ea2ltL7QyZYM"
+      ]
+    }
+  }
+}

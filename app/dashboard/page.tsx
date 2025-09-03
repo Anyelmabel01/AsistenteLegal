@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { useAuth } from '../../src/contexts/auth';
+import { useAuth } from '../../lib/auth';
 import UpdatesPanel from '../../components/UpdatesPanel';
 import NotificationCenter from '../../components/NotificationCenter';
 import DocumentUploader from '../../components/DocumentUploader';

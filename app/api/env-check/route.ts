@@ -1,7 +1,7 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 
-export async function GET(req: NextRequest) {
+export async function GET() {
   // Autenticación - solo usuarios autenticados pueden verificar variables de entorno
   const supabase = createClient();
   const { data: { user }, error: userError } = await supabase.auth.getUser();

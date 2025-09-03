@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useAuth } from '../src/contexts/auth';
+import { useAuth } from '../lib/auth';
 import { uploadDocument } from '../utils/documentService';
 
 export default function DocumentUploader() {

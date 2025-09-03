@@ -4,18 +4,18 @@ export default function GuiaPage() {
   return (
     <div className="prose prose-lg max-w-none bg-white p-6 rounded-lg shadow">
       {/* Use prose classes for nice typography defaults */}
-      <h1>Guía del Asistente Legal</h1>
+      <h1>Guía de Lexi</h1>
 
       <section>
         <h2>¿Cómo funciona el chat?</h2>
         <p>
-          Interactuar con el Asistente Legal es sencillo. Simplemente escribe tus consultas legales
+          Interactuar con Lexi es sencillo. Simplemente escribe tus consultas legales
           en el cuadro de texto al final de la pantalla y presiona Enter o haz clic en el botón de enviar.
-          El asistente utilizará la información de los documentos legales que has subido y su conocimiento general
+          Lexi utilizará la información de los documentos legales que has subido y su conocimiento general
           para proporcionarte una respuesta.
         </p>
         <p>
-          Recuerda que el asistente está diseñado para ofrecer orientación basada en la información disponible,
+          Recuerda que Lexi está diseñado para ofrecer orientación basada en la información disponible,
           pero <strong>no reemplaza el consejo de un abogado profesional</strong> para situaciones complejas o específicas.
         </p>
       </section>

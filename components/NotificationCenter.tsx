@@ -1,8 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { supabase } from '../src/lib/supabaseClient';
-import { useAuth } from '../src/contexts/auth';
+import { supabase } from '../lib/supabaseClient';
+import { useAuth } from '../lib/auth';
 
 type Notification = {
   id: string;
@@ -79,7 +79,7 @@ export default function NotificationCenter() {
     if (user) {
       fetchNotifications();
     }
-  }, [filter]);
+  }, [filter, fetchNotifications, user]);
 
   const markAsRead = async (id: string) => {
     try {

@@ -1,7 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { Button, Upload, message, Typography, Card, Spin, Select } from 'antd';
 import { UploadOutlined, CheckCircleOutlined } from '@ant-design/icons';
-import { analyzeDocument } from '../utils/perplexity'; // Cambiado a perplexity
+import { analyzeDocument } from '../lib/perplexity';
 import styles from '../styles/DocAnalyzer.module.css';
 
 const { Title, Paragraph, Text } = Typography;

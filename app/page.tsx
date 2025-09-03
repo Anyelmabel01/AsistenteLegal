@@ -14,4 +14,4 @@ export default function Home() {
       {/* El componente ClientPage se carga dentro de AuthProviderComponent */}
     </AuthProviderComponent>
   );
-} 
+}

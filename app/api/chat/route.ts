@@ -1,18 +1,31 @@
 import { NextRequest, NextResponse } from 'next/server';
-// Importa tu cliente de IA (Perplexity, OpenAI, etc.)
-import { generateCompletion } from '@/lib/perplexity';
+
+const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
+const OPENAI_API_URL = 'https://api.openai.com/v1/chat/completions';
 
 export async function POST(req: NextRequest) {
   console.log("[API /chat] Received POST request."); // LOG
   try {
     const body = await req.json();
     
-    // LOG: Log the entire received request body
-    console.log("[API /chat] Received request body:", JSON.stringify(body, null, 2));
+    // Validación básica del cuerpo de la solicitud
+    if (!body || typeof body !== 'object') {
+      return NextResponse.json({ error: 'Cuerpo de solicitud inválido.' }, { status: 400 });
+    }
+    
+    // LOG: Log the entire received request body (solo longitudes para seguridad)
+    console.log("[API /chat] Received request body keys:", Object.keys(body));
+    console.log("[API /chat] Messages array length:", Array.isArray(body.messages) ? body.messages.length : 'not array');
 
     const userMessages = body.messages; 
     const pdfText = body.attachedPdfText;
     const hasPDFFlag = body.hasPDF === true;
+    const customSystemPrompt = body.systemPrompt;
+    
+    // Validación de tamaño de PDF text para prevenir ataques DoS
+    if (pdfText && typeof pdfText === 'string' && pdfText.length > 1000000) { // 1MB límite
+      return NextResponse.json({ error: 'Texto de PDF demasiado grande (máximo 1MB).' }, { status: 400 });
+    }
     
     // LOG: Log the extracted pdfText specifically
     console.log(`[API /chat] Extracted pdfText type: ${typeof pdfText}, length: ${pdfText?.length || 0}`);
@@ -22,6 +35,29 @@ export async function POST(req: NextRequest) {
     if (!userMessages || !Array.isArray(userMessages)) {
         console.error("[API /chat] Invalid message format in request body."); // LOG
         return NextResponse.json({ error: 'Formato de mensajes inválido.' }, { status: 400 });
+    }
+    
+    // Validar cada mensaje
+    for (let i = 0; i < userMessages.length; i++) {
+      const msg = userMessages[i];
+      if (!msg || typeof msg !== 'object' || typeof msg.content !== 'string') {
+        return NextResponse.json({ error: `Mensaje ${i} tiene formato inválido.` }, { status: 400 });
+      }
+      
+      // Limitar longitud de mensajes individuales
+      if (msg.content.length > 50000) { // 50KB por mensaje
+        return NextResponse.json({ error: `Mensaje ${i} es demasiado largo (máximo 50KB).` }, { status: 400 });
+      }
+      
+      // Sanitizar contenido básico (prevenir inyecciones)
+      if (msg.content.includes('<script>') || msg.content.includes('javascript:')) {
+        return NextResponse.json({ error: 'Contenido potencialmente malicioso detectado.' }, { status: 400 });
+      }
+    }
+    
+    // Limitar número total de mensajes
+    if (userMessages.length > 100) {
+      return NextResponse.json({ error: 'Demasiados mensajes en la conversación (máximo 100).' }, { status: 400 });
     }
 
     let fullPromptContext = "";
@@ -48,8 +84,46 @@ export async function POST(req: NextRequest) {
     // LOG: Log the final context/prompt being sent to the AI model
     console.log("[API /chat] Final context/prompt for AI (first 300 chars):", fullPromptContext.substring(0, 300));
 
-    // *** Llama a tu modelo de IA ***
-    const aiResponse = await generateCompletion(fullPromptContext);
+    // *** Llama a OpenAI ***
+    if (!OPENAI_API_KEY) {
+      throw new Error('OPENAI_API_KEY no está configurada');
+    }
+
+    const openaiResponse = await fetch(OPENAI_API_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${OPENAI_API_KEY}`,
+      },
+      body: JSON.stringify({
+        model: 'gpt-3.5-turbo',
+        messages: [
+          {
+            role: 'system',
+            content: customSystemPrompt || 'Eres un asistente legal especializado en derecho panameño. Proporciona análisis jurídicos precisos, claros y bien estructurados.'
+          },
+          {
+            role: 'user',
+            content: fullPromptContext
+          }
+        ],
+        max_tokens: 2000,
+        temperature: 0.7,
+      }),
+    });
+
+    if (!openaiResponse.ok) {
+      const errorData = await openaiResponse.json().catch(() => ({}));
+      throw new Error(`Error de OpenAI: ${openaiResponse.status} - ${errorData.error?.message || openaiResponse.statusText}`);
+    }
+
+    const openaiData = await openaiResponse.json();
+    
+    if (!openaiData.choices || openaiData.choices.length === 0) {
+      throw new Error('No se recibió respuesta del modelo');
+    }
+
+    const content = openaiData.choices[0].message.content;
     
     // Adaptar la respuesta según si se detectó un PDF o no
     /*
@@ -95,8 +169,13 @@ Si puedes proporcionar más detalles o documentación sobre tu caso, podré ofre
     console.log("[API /chat] Simulated AI response generated."); // LOG
     */
 
+    const aiResponse = {
+      content: content,
+      sources: []
+    };
+
     // LOG: Log the response being sent back to the client
-    console.log("[API /chat] Sending response back to client:", JSON.stringify(aiResponse, null, 2));
+    console.log("[API /chat] Sending response back to client");
     return NextResponse.json(aiResponse, { status: 200 });
 
   } catch (error: any) {

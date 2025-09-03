@@ -1,5 +1,5 @@
-import { supabase } from '../src/lib/supabaseClient';
-import { generateEmbedding } from './perplexity';
+import { supabase } from '../lib/supabaseClient';
+import { generateEmbedding } from '../lib/perplexity';
 
 /**
  * Sube un documento al storage de Supabase y registra su metadata en la base de datos

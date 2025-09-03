@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import * as pdfParse from "pdf-parse-debugging-disabled";
+import pdfParse from "pdf-parse-debugging-disabled";
 import { Buffer } from "buffer";
 
 // Función básica de preprocesamiento (CUERPO COMPLETO AHORA)
@@ -82,7 +82,7 @@ export async function POST(request: NextRequest) {
     };
     
     // Usar pdfParse con opciones explícitas para evitar comportamientos automáticos
-    const pdfData = await pdfParse.default(buffer, options);
+    const pdfData = await pdfParse(buffer);
     
     const rawTextLength = pdfData?.text?.length || 0;
     console.log(`[API /extract-pdf-text] Raw text extracted length: ${rawTextLength} characters.`);

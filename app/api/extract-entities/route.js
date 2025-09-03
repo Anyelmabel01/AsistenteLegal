@@ -1,12 +1,8 @@
 import { NextResponse } from 'next/server';
-import { exec } from 'child_process';
-import { promises as fs } from 'fs';
-import path from 'path';
-import os from 'os';
 
 /**
- * API route para extraer entidades utilizando spaCy a través de Python
- * Nota: Requiere tener Python y spaCy instalados en el servidor
+ * API route para extraer entidades utilizando expresiones regulares básicas
+ * Versión simplificada sin dependencia de Python/spaCy
  */
 export async function POST(request) {
   try {
@@ -19,34 +15,8 @@ export async function POST(request) {
       );
     }
     
-    // Crear un archivo temporal con el texto para procesar
-    const tempDir = os.tmpdir();
-    const tempInputFile = path.join(tempDir, `legal_text_${Date.now()}.txt`);
-    const tempOutputFile = path.join(tempDir, `entities_${Date.now()}.json`);
-    
-    // Escribir el texto en el archivo temporal
-    await fs.writeFile(tempInputFile, text, 'utf-8');
-    
-    // Ejecutar script de Python con spaCy
-    // Nota: Este script debe estar creado previamente en la carpeta /scripts
-    const pythonScript = path.join(process.cwd(), 'scripts', 'extract_entities.py');
-    
-    const { entities, error } = await runSpacyScript(pythonScript, tempInputFile, tempOutputFile);
-    
-    // Limpiar archivos temporales
-    try {
-      await fs.unlink(tempInputFile);
-      await fs.unlink(tempOutputFile);
-    } catch (cleanupError) {
-      console.error('Error al eliminar archivos temporales:', cleanupError);
-    }
-    
-    if (error) {
-      return NextResponse.json(
-        { error: `Error al procesar entidades: ${error}` },
-        { status: 500 }
-      );
-    }
+    // Extraer entidades usando patrones básicos para documentos legales
+    const entities = extractLegalEntities(text);
     
     return NextResponse.json({ entities });
     
@@ -60,29 +30,68 @@ export async function POST(request) {
 }
 
 /**
- * Ejecuta el script de Python para procesar el texto con spaCy
+ * Extrae entidades básicas usando expresiones regulares
+ * para documentos legales en español (Panamá)
  */
-function runSpacyScript(scriptPath, inputFile, outputFile) {
-  return new Promise((resolve) => {
-    const command = `python "${scriptPath}" "${inputFile}" "${outputFile}"`;
+function extractLegalEntities(text) {
+  const entities = [];
+  
+  // Patrones para diferentes tipos de entidades legales
+  const patterns = {
+    // Fechas (varios formatos)
+    dates: /\b(\d{1,2}[-/]\d{1,2}[-/]\d{2,4}|\d{1,2}\s+de\s+[a-zA-ZáéíóúüñÁÉÍÓÚÜÑ]+\s+de\s+\d{2,4})\b/gi,
     
-    exec(command, async (error, stdout, stderr) => {
-      if (error) {
-        console.error(`Error al ejecutar script de Python: ${error.message}`);
-        console.error(`Stderr: ${stderr}`);
-        resolve({ entities: [], error: error.message });
-        return;
-      }
+    // Números de leyes, decretos, etc.
+    laws: /\b(Ley|Decreto|Resolución|Acuerdo|Código)\s+N[°oº]?\s*[\d\-]+(?:[-\/]\d+)?\b/gi,
+    
+    // Artículos de ley
+    articles: /\b[Aa]rt[íi]culos?\s+\d+(?:\s*[a-z])?(?:\s*al?\s*\d+)?/gi,
+    
+    // Montos monetarios
+    money: /\b(?:B\/\.|USD|US\$|\$|balboas?)\s*[\d,]+(?:\.\d{2})?/gi,
+    
+    // Números de expediente o caso
+    case_numbers: /\b(?:Expediente|Caso|N[°oº])\s*[\w\d\-\/]+/gi,
+    
+    // Nombres de personas (patrones básicos para nombres hispanos)
+    persons: /\b[A-ZÁÉÍÓÚÜÑ][a-záéíóúüñ]+(?:\s+[A-ZÁÉÍÓÚÜÑ][a-záéíóúüñ]+){1,3}\b/g,
+    
+    // Organizaciones/entidades (patrones comunes)
+    organizations: /\b(?:Ministerio|Tribunal|Corte|Juzgado|Registro|Autoridad|Superintendencia|Dirección)\s+[A-ZÁÉÍÓÚÜÑ][a-záéíóúüñ\s]+/gi,
+    
+    // Ubicaciones (provincias y distritos de Panamá)
+    locations: /\b(?:Panamá|Chiriquí|Veraguas|Herrera|Los Santos|Coclé|Colón|Darién|San Miguelito|Penonome|Santiago|David|Las Tablas)\b/gi
+  };
+  
+  // Extraer cada tipo de entidad
+  for (const [type, pattern] of Object.entries(patterns)) {
+    const matches = text.match(pattern) || [];
+    
+    matches.forEach(match => {
+      // Limpiar el match
+      const cleanMatch = match.trim();
       
-      try {
-        // Leer resultados del archivo de salida
-        const data = await fs.readFile(outputFile, 'utf-8');
-        const entities = JSON.parse(data);
-        resolve({ entities });
-      } catch (readError) {
-        console.error('Error al leer archivo de entidades:', readError);
-        resolve({ entities: [], error: readError.message });
+      // Evitar duplicados
+      const exists = entities.some(entity => 
+        entity.text === cleanMatch && entity.type === type
+      );
+      
+      if (!exists && cleanMatch.length > 2) {
+        entities.push({
+          text: cleanMatch,
+          type: type.toUpperCase(),
+          start: text.indexOf(match),
+          end: text.indexOf(match) + match.length
+        });
       }
     });
+  }
+  
+  // Filtrar entidades que son muy comunes o poco específicas
+  const filteredEntities = entities.filter(entity => {
+    const commonWords = ['de', 'la', 'el', 'en', 'con', 'por', 'para', 'del', 'las', 'los'];
+    return !commonWords.includes(entity.text.toLowerCase()) && entity.text.length > 2;
   });
+  
+  return filteredEntities.slice(0, 50); // Limitar a 50 entidades para no sobrecargar
 } 

@@ -3,14 +3,21 @@
 import { useState, useCallback, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useDropzone } from 'react-dropzone';
-import { useAuth } from '../../../src/contexts/auth';
-import { supabase } from '../../../src/lib/supabaseClient';
-import { Document, Page, pdfjs } from 'react-pdf';
-import { createWorker } from 'tesseract.js';
+import { useAuth } from '../../../lib/auth';
+import { supabase } from '../../../lib/supabaseClient';
+import dynamic from 'next/dynamic';
 import { processLegalDocument } from '../../../utils/documentService';
 
-// Configurar el trabajador de PDF.js
-pdfjs.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.min.js`;
+// Dynamic imports to prevent SSR issues
+const Document = dynamic(() => import('react-pdf').then(mod => ({ default: mod.Document })), { ssr: false });
+const Page = dynamic(() => import('react-pdf').then(mod => ({ default: mod.Page })), { ssr: false });
+
+// Configurar el trabajador de PDF.js (solo en el cliente)
+if (typeof window !== 'undefined') {
+  import('react-pdf').then(({ pdfjs }) => {
+    pdfjs.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.min.js`;
+  });
+}
 
 // Tipos para tesseract.js
 interface TesseractProgressType {
@@ -330,7 +337,7 @@ export default function NewCase() {
                   disabled={isProcessing}
                   className={`flex-1 px-4 py-2 rounded-md ${
                     isProcessing ? 'bg-gray-400 cursor-not-allowed' : 'bg-green-600 hover:bg-green-700 text-white'
-                  }`
+                  }`}
                 >
                   Procesar Documento
                 </button>

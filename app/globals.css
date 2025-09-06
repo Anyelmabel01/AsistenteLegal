@@ -6,12 +6,23 @@
 
 /* CSS Variables for Theme Customization */
 :root {
+  /* Legacy variables */
   --theme-primary: #004AAD;
   --theme-accent: #D4AF37;
   --theme-background: #FFFFFF;
   --theme-text: #1E2A38;
   --theme-font-size: 16px;
   --theme-border-radius: 8px;
+  
+  /* New dynamic theme variables */
+  --color-primary: #004AAD;
+  --color-secondary: #0066CC;
+  --color-background: #F8FAFC;
+  --color-surface: #FFFFFF;
+  --color-text: #1E293B;
+  --color-text-secondary: #64748B;
+  --chat-font-size: 14px;
+  --chat-bubble-class: rounded-2xl;
 }
 
 /* Theme-aware utility classes */
@@ -61,6 +72,70 @@
 
 .bg-theme-primary {
   background-color: var(--theme-primary);
+}
+
+/* Chat Message Styling with Dynamic Variables */
+.chat-message-user {
+  background-color: var(--color-primary) !important;
+  color: white !important;
+  font-size: var(--chat-font-size) !important;
+}
+
+.chat-message-assistant {
+  background-color: var(--color-surface) !important;
+  color: var(--color-text) !important;
+  border: 1px solid var(--color-secondary) !important;
+  font-size: var(--chat-font-size) !important;
+}
+
+.chat-message-loading {
+  background-color: var(--color-surface) !important;
+  color: var(--color-text-secondary) !important;
+  font-size: var(--chat-font-size) !important;
+}
+
+/* Dynamic Bubble Styles */
+.bubble-rounded { border-radius: 1.5rem !important; }
+.bubble-square { border-radius: 0.375rem !important; }
+.bubble-circular { border-radius: 2rem !important; }
+.bubble-minimal { 
+  border-radius: 0 !important; 
+  border-left: 4px solid var(--color-primary) !important; 
+}
+
+/* Sidebar and UI Elements */
+.sidebar-primary {
+  background-color: var(--color-surface) !important;
+  border-color: var(--color-secondary) !important;
+}
+
+.btn-primary-dynamic {
+  background-color: var(--color-primary) !important;
+  color: white !important;
+}
+
+.btn-primary-dynamic:hover {
+  background-color: var(--color-secondary) !important;
+}
+
+.text-primary-dynamic {
+  color: var(--color-primary) !important;
+}
+
+.text-secondary-dynamic {
+  color: var(--color-text-secondary) !important;
+}
+
+.bg-primary-dynamic {
+  background-color: var(--color-primary) !important;
+}
+
+.bg-surface-dynamic {
+  background-color: var(--color-surface) !important;
+}
+
+.bg-background-dynamic {
+  background-color: var(--color-background) !important;
 }
 
 .bg-theme-accent {

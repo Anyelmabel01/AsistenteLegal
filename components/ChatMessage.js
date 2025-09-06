@@ -1,8 +1,10 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Card, Avatar, Collapse, List, Typography } from 'antd';
 import { UserOutlined, RobotOutlined, LinkOutlined } from '@ant-design/icons';
+import { PlayIcon, PauseIcon, SpeakerWaveIcon } from '@heroicons/react/24/outline';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import { useSpeechSynthesis } from '../hooks/useSpeechSynthesis';
 
 const { Panel } = Collapse;
 const { Text } = Typography;
@@ -10,6 +12,9 @@ const { Text } = Typography;
 const ChatMessage = ({ message, showSources = false }) => {
   const isUser = message.role === 'user';
   const hasAttachments = message.attachments && message.attachments.length > 0;
+  const [isMessageSpeaking, setIsMessageSpeaking] = useState(false);
+  
+  const { speak, stop, speaking, supported } = useSpeechSynthesis();
   
   // Formatear datetime para mostrar
   const formattedTime = message.created_at 
@@ -24,12 +29,26 @@ const ChatMessage = ({ message, showSources = false }) => {
   // Evaluar si hay fuentes para mostrar
   const hasSources = showSources && message.sources && Array.isArray(message.sources) && message.sources.length > 0;
   
+  // Función para manejar la síntesis de voz
+  const handleSpeech = () => {
+    if (isMessageSpeaking) {
+      stop();
+      setIsMessageSpeaking(false);
+    } else {
+      speak(
+        messageContent, 
+        () => setIsMessageSpeaking(true),
+        () => setIsMessageSpeaking(false)
+      );
+    }
+  };
+  
   return (
     <div className={`flex ${isUser ? 'justify-end' : 'justify-start'} mb-4`}>
       <div className={`${isUser ? 'order-2' : 'order-1'}`}>
         <Avatar
           icon={isUser ? <UserOutlined /> : <RobotOutlined />}
-          className={isUser ? 'bg-primary-500' : 'bg-secondary-600'}
+          className={isUser ? 'bg-primary-dynamic' : 'bg-secondary-dynamic'}
         />
       </div>
       
@@ -37,18 +56,36 @@ const ChatMessage = ({ message, showSources = false }) => {
         <Card 
           size="small"
           className={`${isUser 
-            ? 'bg-primary-50 border-primary-100' 
-            : 'bg-white border-secondary-100'
-          } shadow-sm rounded-lg`}
+            ? 'chat-message-user bubble-rounded' 
+            : 'chat-message-assistant bubble-rounded'
+          } shadow-sm`}
           styles={{ body: { padding: '12px 16px' } }}
         >
-          <div className="flex items-center mb-1">
-            <Text className="text-xs text-gray-500 mr-2">{formattedTime}</Text>
-            {!isUser && message.model && (
-              <Text className="text-xs bg-gray-100 px-1 rounded">{message.model}</Text>
-            )}
-            {!isUser && isResearchMode && (
-              <Text className="text-xs bg-blue-100 text-blue-800 px-1 rounded ml-1">Investigación</Text>
+          <div className="flex items-center justify-between mb-1">
+            <div className="flex items-center">
+              <Text className="text-xs text-gray-500 mr-2">{formattedTime}</Text>
+              {!isUser && message.model && (
+                <Text className="text-xs bg-gray-100 px-1 rounded">{message.model}</Text>
+              )}
+              {!isUser && isResearchMode && (
+                <Text className="text-xs bg-blue-100 text-blue-800 px-1 rounded ml-1">Investigación</Text>
+              )}
+            </div>
+            
+            {/* Botón de síntesis de voz solo para mensajes de Lexi */}
+            {!isUser && supported && messageContent.trim() && (
+              <button
+                onClick={handleSpeech}
+                disabled={speaking && !isMessageSpeaking}
+                className="ml-2 p-1 hover:bg-gray-100 rounded transition-colors"
+                title={isMessageSpeaking ? "Detener lectura" : "Leer mensaje"}
+              >
+                {isMessageSpeaking ? (
+                  <PauseIcon className="h-4 w-4 text-blue-600" />
+                ) : (
+                  <SpeakerWaveIcon className="h-4 w-4 text-gray-500 hover:text-blue-600" />
+                )}
+              </button>
             )}
           </div>
           
@@ -60,7 +97,7 @@ const ChatMessage = ({ message, showSources = false }) => {
                   // Aquí puedes definir componentes personalizados si necesitas estilos específicos
                   // Por ejemplo:
                   p: ({node, ...props}) => <p className="my-2" {...props} />,
-                  a: ({node, ...props}) => <a className="text-primary-600 hover:underline" {...props} />,
+                  a: ({node, ...props}) => <a className="text-primary-dynamic hover:underline" {...props} />,
                   code: ({node, inline, ...props}) => 
                     inline 
                       ? <code className="bg-gray-100 px-1 py-0.5 rounded text-sm" {...props} />

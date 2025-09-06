@@ -20,7 +20,9 @@ export interface ChatFolder {
   id: string;
   name: string;
   color: string;
+  isPrivate: boolean;
   createdAt: Date;
+  userId: string;
 }
 
 export interface ChatState {

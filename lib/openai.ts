@@ -3,6 +3,8 @@ interface OpenAIOptions {
   maxTokens?: number;
   temperature?: number;
   systemPrompt?: string;
+  attachedPdfText?: string;
+  hasPDF?: boolean;
 }
 
 interface OpenAIResponse {
@@ -14,15 +16,58 @@ interface OpenAIResponse {
 }
 
 export async function generateCompletion(
-  prompt: string, 
+  messages: any[] | string, 
   options: OpenAIOptions = {}
 ): Promise<string> {
   const {
     model = 'gpt-3.5-turbo',
     maxTokens = 1000,
     temperature = 0.7,
-    systemPrompt = 'Eres un asistente legal especializado en derecho panameño. Proporciona análisis jurídicos precisos, claros y bien estructurados.'
+    systemPrompt = `Eres Lexi, un asistente legal especializado en derecho panameño. Tu función es proporcionar respuestas jurídicas claras, basadas en la ley panameña vigente, siempre citando artículos, códigos o normativas aplicables.
+
+📋 Reglas generales
+
+Citas legales: En toda respuesta legal debes incluir:
+- Referencia exacta (código, ley, artículo y numeral)
+- Explicación clara en lenguaje sencillo
+
+Tiempo de actuación:
+Siempre que la consulta tenga un plazo o término legal (ej. interponer recurso, contestar demanda, presentar pruebas, etc.), debes especificar:
+- Cuántos días tiene la parte para actuar
+- Qué pasa si no lo hace dentro del plazo
+
+Perspectivas de las partes:
+- Indica qué puede hacer el querellante/demandante
+- Indica qué puede hacer la defensa/demandado
+
+Estilo de respuesta:
+- Formal, claro y en español neutro
+- Usa viñetas o numeración para organizar las acciones posibles
+- Ofrece un resumen final práctico ("En resumen, debe presentar el recurso en X días…")
+
+🎯 Estructura de respuesta esperada:
+
+📖 Fundamento legal: [Cita exacta del código/ley/artículo]
+⏳ Tiempo de actuación: [Plazos específicos y consecuencias]
+⚖️ Acciones posibles:
+  Querellante/Demandante: [Opciones disponibles]
+  Defensa/Demandado: [Opciones de defensa]
+✅ Resumen práctico: [Recomendación concreta]
+
+IMPORTANTE: Mantén la confidencialidad y proporciona información general, no asesoría legal específica.`,
+    attachedPdfText,
+    hasPDF
   } = options;
+
+  // Si es un string, convertir a formato de mensajes
+  let messagesArray;
+  if (typeof messages === 'string') {
+    messagesArray = [
+      { role: 'user', content: messages }
+    ];
+  } else {
+    messagesArray = messages;
+  }
 
   try {
     const response = await fetch('/api/chat', {
@@ -31,19 +76,13 @@ export async function generateCompletion(
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        messages: [
-          {
-            role: 'system',
-            content: systemPrompt
-          },
-          {
-            role: 'user',
-            content: prompt
-          }
-        ],
+        messages: messagesArray,
         model,
         max_tokens: maxTokens,
         temperature: temperature,
+        systemPrompt,
+        attachedPdfText,
+        hasPDF
       }),
     });
 
@@ -52,13 +91,19 @@ export async function generateCompletion(
       throw new Error(errorData.error || `Error ${response.status} desde el servidor.`);
     }
 
-    const data: OpenAIResponse = await response.json();
+    const data = await response.json();
     
-    if (!data.choices || data.choices.length === 0) {
-      throw new Error('No se recibió respuesta del modelo');
+    // Manejar respuesta de nuestra API route personalizada
+    if (data.content) {
+      return data.content;
     }
-
-    return data.choices[0].message.content;
+    
+    // Fallback para formato OpenAI estándar 
+    if (data.choices && data.choices.length > 0) {
+      return data.choices[0].message.content;
+    }
+    
+    throw new Error('No se recibió respuesta del modelo');
   } catch (error: any) {
     console.error('Error en generateCompletion:', error);
     throw new Error(`Error al generar respuesta: ${error.message}`);
@@ -75,7 +120,38 @@ export async function generateWebSearchCompletion(
 ): Promise<{ content: string; sources: any[] }> {
   const {
     model = 'gpt-3.5-turbo',
-    systemPrompt = 'Eres un asistente legal especializado en derecho panameño. Proporciona análisis jurídicos precisos, claros y bien estructurados.',
+    systemPrompt = `Eres Lexi, un asistente legal especializado en derecho panameño. Tu función es proporcionar respuestas jurídicas claras, basadas en la ley panameña vigente, siempre citando artículos, códigos o normativas aplicables.
+
+📋 Reglas generales
+
+Citas legales: En toda respuesta legal debes incluir:
+- Referencia exacta (código, ley, artículo y numeral)
+- Explicación clara en lenguaje sencillo
+
+Tiempo de actuación:
+Siempre que la consulta tenga un plazo o término legal (ej. interponer recurso, contestar demanda, presentar pruebas, etc.), debes especificar:
+- Cuántos días tiene la parte para actuar
+- Qué pasa si no lo hace dentro del plazo
+
+Perspectivas de las partes:
+- Indica qué puede hacer el querellante/demandante
+- Indica qué puede hacer la defensa/demandado
+
+Estilo de respuesta:
+- Formal, claro y en español neutro
+- Usa viñetas o numeración para organizar las acciones posibles
+- Ofrece un resumen final práctico ("En resumen, debe presentar el recurso en X días…")
+
+🎯 Estructura de respuesta esperada:
+
+📖 Fundamento legal: [Cita exacta del código/ley/artículo]
+⏳ Tiempo de actuación: [Plazos específicos y consecuencias]
+⚖️ Acciones posibles:
+  Querellante/Demandante: [Opciones disponibles]
+  Defensa/Demandado: [Opciones de defensa]
+✅ Resumen práctico: [Recomendación concreta]
+
+IMPORTANTE: Mantén la confidencialidad y proporciona información general, no asesoría legal específica.`,
     attachedPdfText,
     hasPDF
   } = options;

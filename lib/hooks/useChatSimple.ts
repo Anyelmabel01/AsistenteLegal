@@ -52,6 +52,8 @@ export function useChatSimple() {
       id: `folder-${Date.now()}`,
       name,
       color,
+      isPrivate: false,
+      userId: 'current-user', // En una implementación real, obtendrías esto del contexto de auth
       createdAt: new Date()
     };
     
@@ -70,6 +72,12 @@ export function useChatSimple() {
     // Move chats out of folder
     setChats(prev => prev.map(chat =>
       chat.folderId === folderId ? { ...chat, folderId: undefined } : chat
+    ));
+  }, []);
+
+  const toggleFolderPrivacy = useCallback((folderId: string) => {
+    setFolders(prev => prev.map(folder =>
+      folder.id === folderId ? { ...folder, isPrivate: !folder.isPrivate } : folder
     ));
   }, []);
 
@@ -128,6 +136,7 @@ export function useChatSimple() {
     createFolder,
     renameFolder,
     deleteFolder,
+    toggleFolderPrivacy,
     moveChatToFolder,
     setSearchQuery,
     getFilteredChats,

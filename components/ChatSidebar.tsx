@@ -3,7 +3,7 @@
 import { useState, useRef } from 'react';
 import Link from 'next/link';
 import { useChatSimple as useChat } from '../lib/hooks/useChatSimple';
-import { useAuth } from '../lib/auth';
+import { useAuth } from '../src/contexts/auth';
 import { 
   ChatBubbleLeftIcon,
   DocumentTextIcon,
@@ -18,7 +18,10 @@ import {
   EllipsisVerticalIcon,
   PencilIcon,
   TrashIcon,
-  PaintBrushIcon
+  PaintBrushIcon,
+  LockClosedIcon,
+  EyeSlashIcon,
+  EyeIcon
 } from '@heroicons/react/24/outline';
 import { Chat, ChatFolder } from '../lib/types/chat';
 
@@ -42,6 +45,7 @@ const ChatSidebar: React.FC<ChatSidebarProps> = ({ isOpen, onToggle, onCustomize
     createFolder,
     renameFolder,
     deleteFolder,
+    toggleFolderPrivacy,
     moveChatToFolder,
     setSearchQuery,
     getFilteredChats
@@ -185,11 +189,16 @@ const ChatSidebar: React.FC<ChatSidebarProps> = ({ isOpen, onToggle, onCustomize
             className="flex items-center flex-1"
             onClick={() => toggleFolder(folder.id)}
           >
-            {isExpanded ? (
-              <FolderOpenIcon className="w-4 h-4 mr-2" style={{ color: folder.color }} />
-            ) : (
-              <FolderIcon className="w-4 h-4 mr-2" style={{ color: folder.color }} />
-            )}
+            <div className="relative">
+              {isExpanded ? (
+                <FolderOpenIcon className="w-4 h-4 mr-2" style={{ color: folder.color }} />
+              ) : (
+                <FolderIcon className="w-4 h-4 mr-2" style={{ color: folder.color }} />
+              )}
+              {folder.isPrivate && (
+                <LockClosedIcon className="w-2 h-2 absolute -top-0.5 -right-0.5 text-navy-600" />
+              )}
+            </div>
             {editingFolder === folder.id ? (
               <input
                 type="text"
@@ -233,6 +242,25 @@ const ChatSidebar: React.FC<ChatSidebarProps> = ({ isOpen, onToggle, onCustomize
                 >
                   <PencilIcon className="w-4 h-4 mr-2" />
                   Renombrar
+                </button>
+                <button
+                  onClick={() => {
+                    toggleFolderPrivacy(folder.id);
+                    setActiveDropdown(null);
+                  }}
+                  className="w-full px-3 py-2 text-left text-sm text-navy-600 hover:bg-steel-50 flex items-center"
+                >
+                  {folder.isPrivate ? (
+                    <>
+                      <EyeIcon className="w-4 h-4 mr-2" />
+                      Hacer público
+                    </>
+                  ) : (
+                    <>
+                      <EyeSlashIcon className="w-4 h-4 mr-2" />
+                      Hacer privado
+                    </>
+                  )}
                 </button>
                 <button
                   onClick={() => {

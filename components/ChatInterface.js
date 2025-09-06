@@ -3,7 +3,7 @@ import ChatMessage from './ChatMessage';
 import ChatInput from './ChatInput';
 import { supabase } from '../src/lib/supabaseClient';
 import { useAuth } from '../src/contexts/auth';
-import { generateCompletion, generateWebSearchCompletion } from '../utils/perplexity';
+import { generateCompletion, generateWebSearchCompletion } from '../lib/openai';
 import { SendOutlined, InfoCircleOutlined, RobotOutlined, UserOutlined, SearchOutlined, MessageOutlined, GlobalOutlined } from '@ant-design/icons';
 import { Input, Select, Tooltip, Switch, Button } from 'antd';
 import { processDocument } from '../utils/documentService';
@@ -11,11 +11,10 @@ import { processDocument } from '../utils/documentService';
 const { TextArea } = Input;
 
 const AVAILABLE_MODELS = [
-  { label: 'Sonar Pro', value: 'sonar-pro' },
-  { label: 'Sonar', value: 'sonar' }, 
-  { label: 'Sonar Small', value: 'sonar-small-online' }, 
-  { label: 'Llama 3-70B', value: 'llama-3-70b-instruct' },
-  { label: 'Mixtral 8x7B', value: 'mixtral-8x7b-instruct' },
+  { label: 'GPT-4', value: 'gpt-4' },
+  { label: 'GPT-3.5 Turbo', value: 'gpt-3.5-turbo' },
+  { label: 'GPT-4o', value: 'gpt-4o' },
+  { label: 'GPT-4o Mini', value: 'gpt-4o-mini' },
 ];
 
 const ChatInterface = () => {
@@ -23,9 +22,11 @@ const ChatInterface = () => {
   const [messages, setMessages] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isLoadingHistory, setIsLoadingHistory] = useState(true);
+  const [loadingMessage, setLoadingMessage] = useState('');
+  const [loadingInterval, setLoadingInterval] = useState(null);
   const [error, setError] = useState(null);
   const messagesEndRef = useRef(null);
-  const [selectedModel, setSelectedModel] = useState('sonar-pro');
+  const [selectedModel, setSelectedModel] = useState('gpt-4');
   const [searchMode, setSearchMode] = useState(true); // true = búsqueda web, false = solo conversación
   const [researchMode, setResearchMode] = useState(false); // true = investigación profunda
   
@@ -38,6 +39,41 @@ const ChatInterface = () => {
   // Function to scroll to the bottom of messages
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
+
+  // Funciones para manejar indicadores de loading dinámicos
+  const startLoadingAnimation = (hasActualPdfText = false) => {
+    const messages = hasActualPdfText
+      ? [
+          '📄 Analizando documento PDF…',
+          '⚖️ Consultando marco legal…',
+          '💡 Evaluando caso jurídico…',
+          '✍️ Preparando análisis legal…'
+        ]
+      : [
+          '✍️ Respondiendo…',
+          '💡 Analizando consulta…',
+          '📖 Consultando legislación…',
+          '⚖️ Evaluando opciones legales…'
+        ];
+
+    let index = 0;
+    setLoadingMessage(messages[0]);
+
+    const interval = setInterval(() => {
+      index = (index + 1) % messages.length;
+      setLoadingMessage(messages[index]);
+    }, 2500); // Cambiar cada 2.5 segundos
+
+    return interval;
+  };
+
+  const stopLoadingAnimation = () => {
+    if (loadingInterval) {
+      clearInterval(loadingInterval);
+      setLoadingInterval(null);
+    }
+    setLoadingMessage('');
   };
 
   // Nueva función para manejar la extracción de texto de PDF
@@ -170,6 +206,15 @@ const ChatInterface = () => {
     }
   }, [messages, isLoadingHistory]);
 
+  // Cleanup del intervalo de loading al desmontar el componente
+  useEffect(() => {
+    return () => {
+      if (loadingInterval) {
+        clearInterval(loadingInterval);
+      }
+    };
+  }, [loadingInterval]);
+
   // Función para procesar archivos adjuntos
   const processAttachments = async (attachments) => {
     if (!attachments || attachments.length === 0) return null;
@@ -276,6 +321,11 @@ const ChatInterface = () => {
     const tempUserId = `temp-${crypto.randomUUID()}`;
     setMessages((prevMessages) => [...prevMessages, { ...userMessage, id: tempUserId }]);
     setIsLoading(true);
+    
+    // Iniciar animación de loading dinámico
+    const interval = startLoadingAnimation(hasActualPdfText);
+    setLoadingInterval(interval);
+    
     setError(null);
 
     try {
@@ -452,12 +502,14 @@ Cuando recibas un caso o consulta, sigue estos pasos:
         setError(`Error: ${err.message}. Intenta de nuevo.`);
       } finally {
         setIsLoading(false);
+        stopLoadingAnimation();
       }
     } catch (err) {
       console.error('Error handling message:', err);
       setError(`Error: ${err.message}. Intenta de nuevo.`);
     } finally {
       setIsLoading(false);
+      stopLoadingAnimation();
       
       // Verificar que aún tenemos el texto del PDF antes de limpiarlo
       console.log('[ChatInterface] Verificando texto del PDF antes de limpiarlo:', {
@@ -511,7 +563,7 @@ Cuando recibas un caso o consulta, sigue estos pasos:
       {/* Header */}
       <div className="bg-white border-b border-primary-100 p-4 flex items-center justify-between animate-fade-in">
         <div className="flex items-center space-x-3">
-          <div className="h-10 w-10 rounded-full bg-primary-600 flex items-center justify-center">
+          <div className="h-10 w-10 rounded-full bg-primary-dynamic flex items-center justify-center">
             <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8h2a2 2 0 012 2v6a2 2 0 01-2 2h-2v4l-4-4H9a1.994 1.994 0 01-1.414-.586m0 0L11 14h4a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2v4l.586-.586z" />
             </svg>
@@ -576,12 +628,13 @@ Cuando recibas un caso o consulta, sigue estos pasos:
             />
           </Tooltip>
           
-          {/* Indicador de carga */}
+          {/* Indicador de carga dinámico */}
           {isLoading && (
-            <div className="flex items-center text-primary-600 text-sm">
-              <div className="animate-pulse-slow mr-2 h-2 w-2 rounded-full bg-primary-600"></div>
-              <div className="animate-pulse-slow animation-delay-300 mr-2 h-2 w-2 rounded-full bg-primary-600"></div>
-              <div className="animate-pulse-slow animation-delay-600 h-2 w-2 rounded-full bg-primary-600"></div>
+            <div className="flex items-center text-primary-dynamic text-sm font-medium">
+              <div className="animate-pulse mr-2 h-2 w-2 rounded-full bg-primary-dynamic"></div>
+              <div className="animate-pulse animation-delay-300 mr-2 h-2 w-2 rounded-full bg-primary-dynamic"></div>
+              <div className="animate-pulse animation-delay-600 mr-3 h-2 w-2 rounded-full bg-primary-dynamic"></div>
+              <span className="animate-pulse">{loadingMessage || '✍️ Respondiendo…'}</span>
             </div>
           )}
         </div>
@@ -592,9 +645,9 @@ Cuando recibas un caso o consulta, sigue estos pasos:
         {isLoadingHistory ? (
             <div className="flex justify-center items-center h-full">
               <div className="animate-bounce-subtle flex space-x-1">
-                <div className="w-3 h-3 bg-primary-400 rounded-full"></div>
-                <div className="w-3 h-3 bg-primary-500 rounded-full animation-delay-200"></div>
-                <div className="w-3 h-3 bg-primary-600 rounded-full animation-delay-400"></div>
+                <div className="w-3 h-3 bg-primary-dynamic rounded-full opacity-60"></div>
+                <div className="w-3 h-3 bg-primary-dynamic rounded-full animation-delay-200 opacity-80"></div>
+                <div className="w-3 h-3 bg-primary-dynamic rounded-full animation-delay-400"></div>
               </div>
             </div>
         ) : (

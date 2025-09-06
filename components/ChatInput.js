@@ -11,6 +11,9 @@ import {
 } from '@ant-design/icons';
 import { MicrophoneIcon, StopIcon, DocumentIcon, PhotoIcon, XMarkIcon } from '@heroicons/react/24/solid';
 import { pipeline } from '@xenova/transformers';
+import dynamic from 'next/dynamic';
+
+const VoiceRecorder = dynamic(() => import('./VoiceRecorder'), { ssr: false });
 
 const ChatInput = ({ 
   onSendMessage, 
@@ -24,6 +27,7 @@ const ChatInput = ({
   const [showAttachments, setShowAttachments] = useState(false);
   const [attachments, setAttachments] = useState([]);
   const [isRecording, setIsRecording] = useState(false);
+  const [showVoiceRecorder, setShowVoiceRecorder] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
   const [recordingInterval, setRecordingInterval] = useState(null);
   
@@ -335,6 +339,19 @@ const ChatInput = ({
     }
   };
 
+  // Handlers para grabación de voz
+  const handleVoiceRecorded = (transcript, audioBlob) => {
+    if (transcript.trim()) {
+      setInputValue(transcript);
+      setShowVoiceRecorder(false);
+      // Opcional: guardar el blob de audio para enviar junto con el mensaje
+    }
+  };
+
+  const handleCancelVoiceRecording = () => {
+    setShowVoiceRecorder(false);
+  };
+
   return (
     <form onSubmit={handleSubmit} className="px-4 py-3">
       {/* Visualización de adjuntos genéricos (no el PDF en procesamiento) */}
@@ -464,14 +481,14 @@ const ChatInput = ({
                     className="text-blue-600 hover:bg-blue-50"
                   />
                 </Tooltip>
-                <Tooltip title={isRecording ? "Detener grabación" : "Grabar nota de voz"}>
+                <Tooltip title="Grabar nota de voz">
                   <Button 
                     type="text" 
-                    icon={isRecording ? <StopIcon className="h-5 w-5" /> : <AudioOutlined />}
+                    icon={<MicrophoneIcon className="h-5 w-5" />}
                     size="small"
-                    onClick={handleToggleRecording}
-                    className={isRecording ? "text-red-600 hover:bg-red-50" : "text-green-600 hover:bg-green-50"}
-                    disabled={isModelLoading || isTranscribing}
+                    onClick={() => setShowVoiceRecorder(true)}
+                    className="text-green-600 hover:bg-green-50"
+                    disabled={isLoading || isRecording}
                   />
                 </Tooltip>
               </div>
@@ -497,6 +514,15 @@ const ChatInput = ({
           multiple
         />
       </div>
+
+      {/* VoiceRecorder Modal */}
+      {showVoiceRecorder && (
+        <VoiceRecorder
+          isRecording={true}
+          onVoiceRecorded={handleVoiceRecorded}
+          onCancel={handleCancelVoiceRecording}
+        />
+      )}
     </form>
   );
 };

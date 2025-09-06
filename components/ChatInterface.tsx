@@ -37,8 +37,8 @@ const ChatInterface: React.FC = () => {
   const [isLoadingHistory, setIsLoadingHistory] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const [selectedModel, setSelectedModel] = useState<string>('gpt-3.5-turbo');
-  const [searchMode, setSearchMode] = useState<boolean>(true); // true = búsqueda web, false = solo conversación
+  const [selectedModel, setSelectedModel] = useState<string>('gpt-4');
+  const [searchMode, setSearchMode] = useState<boolean>(false); // true = búsqueda web, false = solo conversación
   const [researchMode, setResearchMode] = useState<boolean>(false); // true = investigación profunda
   
   // Estados para el manejo de PDF
